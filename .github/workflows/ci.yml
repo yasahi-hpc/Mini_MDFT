@@ -61,4 +61,4 @@ jobs:
       - name: Test
         run: |
           docker run -v ${{github.workspace}}:/work gcc_env \
-            ctest --test-dir build/batched/unit_test -C ${{env.BUILD_TYPE}} --output-on-failure
+            ctest --test-dir build/unit_test -C ${{env.BUILD_TYPE}} --output-on-failure
