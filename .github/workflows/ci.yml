@@ -48,7 +48,7 @@ jobs:
         run: |
           docker run -v ${{ github.workspace }}:/work gcc_env \
             cmake -B build \
-            -DCMAKE_CXX_COMPILER=gcc++ \
+            -DCMAKE_CXX_COMPILER=g++ \
             -DCMAKE_CXX_STANDARD=20 \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             -DMini_MDFT_ENABLE_TESTS=ON
@@ -61,4 +61,4 @@ jobs:
       - name: Test
         run: |
           docker run -v ${{github.workspace}}:/work gcc_env \
-            ctest --test-dir build/batched/unit_test -C ${{env.BUILD_TYPE}} --output-on-failure
+            ctest --test-dir build/unit_test -C ${{env.BUILD_TYPE}} --output-on-failure
