@@ -111,9 +111,9 @@ struct AngularGrid {
              static_cast<ScalarType>(m_npsi);
     m_np = 0;
 
-    for (int m = 0; m < m_mmax; ++m) {
+    for (int m = 0; m <= m_mmax; ++m) {
       for (int mup = -m; mup <= m; ++mup) {
-        for (int mu = 0; mu < m / m_molrotsymorder; ++mu) {
+        for (int mu = 0; mu <= m / m_molrotsymorder; ++mu) {
           m_np++;
         }
       }
