@@ -130,7 +130,7 @@ class OrientationProjectionTransform {
 
     auto h_wigner_small_d = Kokkos::create_mirror_view(m_wigner_small_d);
     auto h_thetaofntheta  = Kokkos::create_mirror_view_and_copy(
-         Kokkos::HostSpace(), angular_grid.m_thetaofntheta);
+        Kokkos::HostSpace(), angular_grid.m_thetaofntheta);
     // Tabulate generalized spherical harmonics in array
     // p3%wigner_small_d(theta,proj) where theta can be any of the GaussLegendre
     // integration roots for theta where proj is an index related to a tuple
