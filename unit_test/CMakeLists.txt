@@ -1,6 +1,7 @@
 add_executable(unit-tests-mini-mdft
     Test_Main.cpp
     Test_Grid.cpp
+    Test_Wigner.cpp
     Test_Math_Utils.cpp
 )
 
