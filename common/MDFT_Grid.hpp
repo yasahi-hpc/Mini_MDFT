@@ -61,7 +61,7 @@ struct SpatialGrid {
         [](ScalarType l, IntType n) { return l / static_cast<ScalarType>(n); });
 
     m_v  = std::accumulate(Kokkos::begin(m_length), Kokkos::end(m_length), 1.0,
-                          std::multiplies<ScalarType>());
+                           std::multiplies<ScalarType>());
     m_dv = std::accumulate(Kokkos::begin(m_dl), Kokkos::end(m_dl), 1.0,
                            std::multiplies<ScalarType>());
 
@@ -111,9 +111,9 @@ struct AngularGrid {
              static_cast<ScalarType>(m_npsi);
     m_np = 0;
 
-    for (int m = 0; m < m_mmax; ++m) {
+    for (int m = 0; m <= m_mmax; ++m) {
       for (int mup = -m; mup <= m; ++mup) {
-        for (int mu = 0; mu < m / m_molrotsymorder; ++mu) {
+        for (int mu = 0; mu <= m / m_molrotsymorder; ++mu) {
           m_np++;
         }
       }

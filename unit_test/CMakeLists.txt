@@ -3,6 +3,7 @@ add_executable(unit-tests-mini-mdft
     Test_Grid.cpp
     Test_Wigner.cpp
     Test_Math_Utils.cpp
+    Test_OrientationProjectionTransform.cpp
 )
 
 target_compile_features(unit-tests-mini-mdft PUBLIC cxx_std_20)
