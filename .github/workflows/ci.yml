@@ -47,7 +47,6 @@ jobs:
               kokkos: -DKokkos_ENABLE_OPENMP=ON
               mini_mdft:
 
-
     steps:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@v1.2.0
