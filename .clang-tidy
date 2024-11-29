@@ -1,0 +1,6 @@
+Checks: '-*,modernize-type-traits,modernize-use-using,modernize-use-nullptr,cppcoreguidelines-pro-type-cstyle-cast,bugprone-reserved-identifier'
+FormatStyle: file
+HeaderFileExtensions: ['h','hh','hpp','hxx']
+ImplementationFileExtensions: ['c','cc','cpp','cxx']
+HeaderFilterRegex: '(common).*\.hpp'
+ExcludeHeaderFilterRegex: 'tpls.*\.hpp'
