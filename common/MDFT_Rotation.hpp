@@ -46,22 +46,11 @@ struct RotationCoeffs {
     // sqrt(3._dp), sqrt(4._dp), sqrt(5._dp),& sqrt(6._dp), sqrt(7._dp),
     // sqrt(8._dp), sqrt(9._dp), sqrt(10._dp),
     // sqrt(11._dp),sqrt(12._dp),sqrt(13._dp) ]
-    std::vector<ScalarType> sqrtof = {0.0,
-                                      0.0,
-                                      1.0,
-                                      std::sqrt(2.0),
-                                      std::sqrt(3.0),
-                                      std::sqrt(4.0),
-                                      std::sqrt(5.0),
-                                      std::sqrt(6.0),
-                                      std::sqrt(7.0),
-                                      std::sqrt(8.0),
-                                      std::sqrt(9.0),
-                                      std::sqrt(10.0),
-                                      std::sqrt(11.0),
-                                      std::sqrt(12.0),
-                                      std::sqrt(13.0)};
-    ScalarType sqrt2               = std::sqrt(2.0);
+    std::vector<ScalarType> sqrtof(2 * m_mmax_max + 2, 0.0);
+    for (int i = 2; i < 14; ++i) {
+      sqrtof.at(i) = std::sqrt(static_cast<ScalarType>(i - 1));
+    }
+    ScalarType sqrt2 = std::sqrt(2.0);
 
     // Note that the l index starts from 0 in C++ but starts from 2 in Fortran
     for (int l = 2; l <= m_mmax_max; ++l) {

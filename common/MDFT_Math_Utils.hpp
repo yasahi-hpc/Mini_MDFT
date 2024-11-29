@@ -108,7 +108,7 @@ template <KokkosArray ArrayType>
 KOKKOS_INLINE_FUNCTION auto L2normalize(const ArrayType x) {
   ArrayType result;
   auto tmp_norm2 = norm2(x);
-  for (int i = 0; i < x.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(x.size()); ++i) {
     result[i] = x[i] / tmp_norm2;
   }
   return result;
