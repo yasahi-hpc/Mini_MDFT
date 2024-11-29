@@ -97,7 +97,7 @@ KOKKOS_INLINE_FUNCTION auto norm2(const ArrayType x) ->
     typename ArrayType::value_type {
   using value_type  = typename ArrayType::value_type;
   value_type l2nrom = 0;
-  for (int i = 0; i < x.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(x.size()); ++i) {
     l2nrom += x[i] * x[i];
   }
 
