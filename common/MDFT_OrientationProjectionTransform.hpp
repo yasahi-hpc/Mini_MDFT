@@ -90,6 +90,7 @@ struct OrientationProjectionMap {
 
     // Initialization made on host
     using host_space = Kokkos::DefaultHostExecutionSpace;
+    using max_type   = Kokkos::Max<int>;
 
     int amax_m = 0, amax_mup = 0, amax_mu = 0;
     Kokkos::parallel_reduce(
@@ -99,7 +100,7 @@ struct OrientationProjectionMap {
           lmax_mup = Kokkos::max(lmax_mup, Kokkos::abs(h_mup_neg(ip)));
           lmax_mu  = Kokkos::max(lmax_mu, Kokkos::abs(h_mu(ip)));
         },
-        amax_m, amax_mup, amax_mu);
+        max_type(amax_m), max_type(amax_mup), max_type(amax_mu));
 
     MDFT::Impl::Throw_If(amax_m > mmax || amax_mup > mmax || amax_mu > mmax,
                          "Invalid m, mup, mu values");
