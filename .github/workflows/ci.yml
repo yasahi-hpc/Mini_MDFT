@@ -18,16 +18,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: DoozyX/clang-format-lint-action@v0.13
+    - uses: DoozyX/clang-format-lint-action@v0.18
       with:
         source: 'common/ unit_test/'
         exclude: ''
         extensions: 'hpp,cpp'
-        clangFormatVersion: 12
+        clangFormatVersion: 17
 
   # build project
   build:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        backend:
+          - name: clang-tidy
+            image: clang
+            compiler:
+              cxx: clang++
+            cmake_flags:
+              kokkos: -DKokkos_ENABLE_SERIAL=ON
+              mini_mdft: -DCMAKE_CXX_FLAGS="-Wall -Wextra" -DCMAKE_COMPILE_WARNING_AS_ERROR=ON -DCMAKE_CXX_CLANG_TIDY="clang-tidy;-warnings-as-errors=*"
+          - name: gcc
+            image: gcc
+            compiler:
+              cxx: g++
+            cmake_flags:
+              kokkos: -DKokkos_ENABLE_OPENMP=ON
+              mini_mdft:
+
 
     steps:
       - name: Free Disk Space (Ubuntu)
@@ -42,23 +61,25 @@ jobs:
           submodules: recursive
 
       - name: Build docker
-        run: docker build -t gcc_env docker/gcc
+        run: docker build -t ${{ matrix.backend.image }} docker/${{ matrix.backend.image }}
 
       - name: Configure
         run: |
-          docker run -v ${{ github.workspace }}:/work gcc_env \
+          docker run -v ${{ github.workspace }}:/work ${{ matrix.backend.image }} \
             cmake -B build \
-            -DCMAKE_CXX_COMPILER=g++ \
+            -DCMAKE_CXX_COMPILER=${{ matrix.backend.compiler.cxx }} \
             -DCMAKE_CXX_STANDARD=20 \
+            -DMini_MDFT_ENABLE_TESTS=ON \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-            -DMini_MDFT_ENABLE_TESTS=ON
+            ${{ matrix.backend.cmake_flags.kokkos }} \
+            ${{ matrix.backend.cmake_flags.mini_mdft }}
             
       - name: Build
         run: |
-          docker run -v ${{ github.workspace }}:/work gcc_env \
+          docker run -v ${{ github.workspace }}:/work ${{ matrix.backend.image }} \
             cmake --build build -j 4
 
       - name: Test
         run: |
-          docker run -v ${{github.workspace}}:/work gcc_env \
+          docker run -v ${{github.workspace}}:/work ${{ matrix.backend.image }} \
             ctest --test-dir build/unit_test -C ${{env.BUILD_TYPE}} --output-on-failure
