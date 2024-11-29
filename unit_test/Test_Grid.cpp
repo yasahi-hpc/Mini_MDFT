@@ -68,9 +68,7 @@ TYPED_TEST(TestSpatialGrid, Initialization) {
 }
 
 TYPED_TEST(TestAngularGrid, NegativeMeshSize) {
-  using float_type        = typename TestFixture::float_type;
-  using scalar_array_type = typename TestFixture::scalar_array_type;
-  using int_array_type    = typename TestFixture::int_array_type;
+  using float_type = typename TestFixture::float_type;
 
   ASSERT_THROW(({
                  int mmax = -1, molrotsymorder = 10;
@@ -88,9 +86,7 @@ TYPED_TEST(TestAngularGrid, NegativeMeshSize) {
 }
 
 TYPED_TEST(TestAngularGrid, Initialization) {
-  using float_type        = typename TestFixture::float_type;
-  using scalar_array_type = typename TestFixture::scalar_array_type;
-  using int_array_type    = typename TestFixture::int_array_type;
+  using float_type = typename TestFixture::float_type;
 
   ASSERT_NO_THROW(({
     int mmax = 10, molrotsymorder = 10;

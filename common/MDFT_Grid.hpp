@@ -81,7 +81,7 @@ struct AngularGrid {
   using View3DType      = typename Kokkos::View<ScalarType***, ExecutionSpace>;
 
   // Angular grid .. angular quadrature
-  IntType m_molrotsymorder, m_mmax, m_ntheta, m_nphi, m_npsi, m_no, m_np;
+  IntType m_mmax, m_molrotsymorder, m_ntheta, m_nphi, m_npsi, m_no, m_np;
   ScalarType m_dphi, m_dpsi;
   ScalarType m_quadrature_norm = 8.0 * M_PI * M_PI;
 

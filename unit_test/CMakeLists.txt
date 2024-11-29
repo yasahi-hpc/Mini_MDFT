@@ -4,7 +4,7 @@ add_executable(unit-tests-mini-mdft
     Test_Wigner.cpp
     Test_Math_Utils.cpp
     Test_OrientationProjectionTransform.cpp
-    #Test_Rotation.cpp
+    Test_Rotation.cpp
     #Test_Convolution.cpp
     Test_Solvent.cpp
 )

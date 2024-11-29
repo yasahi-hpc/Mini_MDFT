@@ -44,8 +44,6 @@ struct OrientationProjectionMap {
 
   OrientationProjectionMap(const AngularGridType& angular_grid) {
     auto ntheta = angular_grid.m_ntheta;
-    auto nphi   = angular_grid.m_nphi;
-    auto npsi   = angular_grid.m_npsi;
     auto np     = angular_grid.m_np;
     auto mmax   = angular_grid.m_mmax;
     auto mrso   = angular_grid.m_molrotsymorder;
@@ -367,8 +365,7 @@ class OrientationProjectionTransform {
     requires KokkosViewAccesible<ExecutionSpace, PView> &&
              KokkosViewAccesible<ExecutionSpace, OView>
   void proj2angl(const PView& p, const OView& o) {
-    int N = o.extent(0), ntheta = o.extent(1), nphi = o.extent(2),
-        npsi = o.extent(3);
+    int N = o.extent(0), ntheta = o.extent(1);
 
     // Need to represent p
     auto fm             = m_fm;
@@ -376,7 +373,6 @@ class OrientationProjectionTransform {
     auto p_map          = m_map.p();
     auto wtheta         = m_wtheta;
     auto wigner_small_d = m_map.wigner_small_d();
-    int np              = p_to_m.extent(0);
 
     auto o_hat_tmp = m_o_hat;
 

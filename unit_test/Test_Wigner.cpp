@@ -19,7 +19,9 @@ TYPED_TEST_SUITE(TestWigner, float_types);
 
 template <typename T>
 void test_wigner_small_d_quick_return(int m, int mu, int mup) {
-  ASSERT_NO_THROW(({ auto d = MDFT::Impl::wigner_small_d(m, mu, mup, 0.0); }));
+  ASSERT_NO_THROW(({
+    [[maybe_unused]] auto d = MDFT::Impl::wigner_small_d(m, mu, mup, 0.0);
+  }));
   auto d = MDFT::Impl::wigner_small_d(m, mu, mup, 0.0);
 
   T epsilon = std::numeric_limits<T>::epsilon() * 100;

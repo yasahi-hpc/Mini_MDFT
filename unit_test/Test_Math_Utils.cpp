@@ -172,7 +172,7 @@ void test_L2normalize() {
 
         for (int i = 0; i < 3; ++i) {
           A_norm(i)  = tmp_A_norm[i];
-          B_norm(i)  = tmp_A_norm[i];
+          B_norm(i)  = tmp_B_norm[i];
           Ex_norm(i) = tmp_Ex_norm[i];
           Ey_norm(i) = tmp_Ey_norm[i];
           Ez_norm(i) = tmp_Ez_norm[i];

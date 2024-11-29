@@ -23,7 +23,7 @@ void gauss_legendre(InViewType& x, OutViewType& w) {
   auto h_w         = Kokkos::create_mirror_view(w);
 
   int n = x.extent(0);
-  MDFT::Impl::Throw_If(w.extent(0) != n,
+  MDFT::Impl::Throw_If(w.extent(0) != static_cast<std::size_t>(n),
                        "Input and output should have the same extent");
   int m = (n + 1) / 2;
 
@@ -97,7 +97,7 @@ KOKKOS_INLINE_FUNCTION auto norm2(const ArrayType x) ->
     typename ArrayType::value_type {
   using value_type  = typename ArrayType::value_type;
   value_type l2nrom = 0;
-  for (int i = 0; i < x.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(x.size()); ++i) {
     l2nrom += x[i] * x[i];
   }
 
@@ -108,7 +108,7 @@ template <KokkosArray ArrayType>
 KOKKOS_INLINE_FUNCTION auto L2normalize(const ArrayType x) {
   ArrayType result;
   auto tmp_norm2 = norm2(x);
-  for (int i = 0; i < x.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(x.size()); ++i) {
     result[i] = x[i] / tmp_norm2;
   }
   return result;
