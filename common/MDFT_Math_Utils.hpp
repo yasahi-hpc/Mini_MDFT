@@ -68,7 +68,7 @@ void gauss_legendre(InViewType& x, OutViewType& w) {
 }
 
 template <KokkosExecutionSpace ExecutionSpace, KokkosView ViewType>
-requires KokkosViewAccesible<ExecutionSpace, ViewType>
+  requires KokkosViewAccesible<ExecutionSpace, ViewType>
 void uniform_mesh(const ExecutionSpace& exec, ViewType& x,
                   typename ViewType::non_const_value_type dx) {
   using value_type = typename ViewType::non_const_value_type;

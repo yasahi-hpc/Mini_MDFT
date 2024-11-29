@@ -20,7 +20,7 @@ namespace MDFT {
 // npsi) \param rho0 [in] Reference density
 template <KokkosExecutionSpace ExecutionSpace, KokkosView ViewType,
           typename ScalarType>
-requires KokkosViewAccesible<ExecutionSpace, ViewType>
+  requires KokkosViewAccesible<ExecutionSpace, ViewType>
 void get_delta_rho(const ExecutionSpace& exec_space, const ViewType& xi,
                    const ViewType& delta_rho, const ScalarType rho0) {
   const std::size_t n = xi.size();
