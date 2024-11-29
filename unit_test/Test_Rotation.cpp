@@ -48,10 +48,7 @@ TYPED_TEST(TestRotation, CoeffInitialization) {
 
 TYPED_TEST(TestRotation, SphericalHarmonicsLU) {
   using float_type = typename TestFixture::float_type;
-
-  for (auto n : this->m_all_sizes) {
-    test_spherical_harmonics_lu<float_type>();
-  }
+  test_spherical_harmonics_lu<float_type>();
 }
 
 }  // namespace
