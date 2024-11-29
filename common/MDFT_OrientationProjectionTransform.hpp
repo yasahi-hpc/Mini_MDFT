@@ -44,8 +44,6 @@ struct OrientationProjectionMap {
 
   OrientationProjectionMap(const AngularGridType& angular_grid) {
     auto ntheta = angular_grid.m_ntheta;
-    auto nphi   = angular_grid.m_nphi;
-    auto npsi   = angular_grid.m_npsi;
     auto np     = angular_grid.m_np;
     auto mmax   = angular_grid.m_mmax;
     auto mrso   = angular_grid.m_molrotsymorder;

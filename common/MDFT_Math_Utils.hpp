@@ -23,7 +23,7 @@ void gauss_legendre(InViewType& x, OutViewType& w) {
   auto h_w         = Kokkos::create_mirror_view(w);
 
   int n = x.extent(0);
-  MDFT::Impl::Throw_If(w.extent(0) != n,
+  MDFT::Impl::Throw_If(w.extent(0) != static_cast<std::size_t>(n),
                        "Input and output should have the same extent");
   int m = (n + 1) / 2;
 
