@@ -86,7 +86,8 @@ void get_delta_f(const ExecutionSpace& exec_space, const View6DType& xi,
 
   ff                = 0;
   using member_type = typename Kokkos::TeamPolicy<ExecutionSpace>::member_type;
-  auto team_policy  = Kokkos::TeamPolicy<ExecutionSpace>(nxyz, Kokkos::AUTO);
+  auto team_policy =
+      Kokkos::TeamPolicy<ExecutionSpace>(exec_space, nxyz, Kokkos::AUTO);
   Kokkos::parallel_reduce(
       "delta_f", team_policy,
       KOKKOS_LAMBDA(const member_type& team_member, ValueType& l_ff) {
