@@ -6,6 +6,7 @@ namespace {
 
 using execution_space = Kokkos::DefaultExecutionSpace;
 using float_types     = ::testing::Types<float, double>;
+using int_types       = ::testing::Types<int, long>;
 
 template <typename T>
 struct TestMathUtils : public ::testing::Test {
@@ -14,7 +15,14 @@ struct TestMathUtils : public ::testing::Test {
   float_type m_delta                   = 0.1;
 };
 
+template <typename T>
+struct TestMathUtilsIntOp : public ::testing::Test {
+  using int_type                       = T;
+  std::vector<std::size_t> m_all_sizes = {1, 2, 5, 10};
+};
+
 TYPED_TEST_SUITE(TestMathUtils, float_types);
+TYPED_TEST_SUITE(TestMathUtilsIntOp, int_types);
 
 template <typename T>
 void test_gauss_legendre(int n) {
@@ -264,6 +272,15 @@ void test_prevent_underflow() {
   EXPECT_LT(Kokkos::abs(h_z2().imag() - 0.0), epsilon);
 }
 
+template <typename T>
+void test_inv_index(T n) {
+  // Check if do not crash
+  for (T i = 0; i < n; ++i) {
+    int result = MDFT::Impl::inv_index(i, n);
+    EXPECT_TRUE(result >= 0 && result < n);
+  }
+}
+
 TYPED_TEST(TestMathUtils, GaussLegendre) {
   using float_type = typename TestFixture::float_type;
 
@@ -298,6 +315,13 @@ TYPED_TEST(TestMathUtils, L2normalize) {
 TYPED_TEST(TestMathUtils, PreventUnderflow) {
   using float_type = typename TestFixture::float_type;
   test_prevent_underflow<float_type>();
+}
+
+TYPED_TEST(TestMathUtilsIntOp, InvIndex) {
+  using int_type = typename TestFixture::int_type;
+  for (auto n : this->m_all_sizes) {
+    test_inv_index<int_type>(static_cast<int_type>(n));
+  }
 }
 
 }  // namespace

@@ -117,7 +117,7 @@ KOKKOS_INLINE_FUNCTION auto L2normalize(const ArrayType x) {
 // Corresponds to ix_mq, iy_mq, iz_mq in Fortran
 template <typename IntType>
 KOKKOS_INLINE_FUNCTION auto inv_index(const IntType i, const IntType n) {
-  IntType result = i == 0 ? 0 : n - i + 1;
+  IntType result = i == 0 ? 0 : n - i;
   return result;
 }
 
