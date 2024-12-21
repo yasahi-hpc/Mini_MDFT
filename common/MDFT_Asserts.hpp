@@ -5,7 +5,6 @@
 #include <sstream>
 #include <string_view>
 #include <source_location>
-#include <source_location>
 
 namespace MDFT {
 namespace Impl {

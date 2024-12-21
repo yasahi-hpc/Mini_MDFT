@@ -8,6 +8,7 @@ project(
 # Options
 option(Mini_MDFT_ENABLE_TESTS "Build Mini-MDFT tests" OFF)
 
+add_subdirectory(tpls/json)
 add_subdirectory(tpls/kokkos)
 add_subdirectory(tpls/kokkos-fft)
 
