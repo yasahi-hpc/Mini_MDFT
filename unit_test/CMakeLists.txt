@@ -7,6 +7,8 @@ add_executable(unit-tests-mini-mdft
     Test_Rotation.cpp
     Test_Convolution.cpp
     Test_Solvent.cpp
+    Test_IO.cpp
+    Test_Solute.cpp
 )
 
 target_compile_features(unit-tests-mini-mdft PUBLIC cxx_std_20)

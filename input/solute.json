@@ -1,0 +1,12 @@
+{
+    "nsite": 1,
+    "charge": [1.0],
+    "sigma": [2.93],
+    "epsilon": [0.759],
+    "x": [0.0],
+    "y": [0.0],
+    "z": [0.0],
+    "Zatomic": [17],
+    "Atom Name": ["I"],
+    "Surname": ["I-1"]
+}

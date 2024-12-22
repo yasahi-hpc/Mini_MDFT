@@ -2,6 +2,7 @@ add_library(Mini-MDFT-Common INTERFACE)
 
 target_link_libraries(Mini-MDFT-Common
     INTERFACE
+    nlohmann_json::nlohmann_json
     Kokkos::kokkos
     KokkosFFT::fft
 )
