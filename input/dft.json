@@ -1,0 +1,13 @@
+{
+    "boxnod": [64, 64, 64],
+    "boxlen": [30, 30, 30],
+    "solvent": "spce",
+    "mmax": 5,
+    "maximum_iteration_nbr": 35,
+    "precision_factor": 1.0,
+    "solute_charges_scale_factor": 1.0,
+    "hard_sphere_solute": false,
+    "hard_sphere_solute_radius": 15,
+    "temperature": 298,
+    "restart": true
+}
