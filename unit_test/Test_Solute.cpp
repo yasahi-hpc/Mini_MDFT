@@ -92,7 +92,8 @@ void test_solute_init(int n, std::string setting_filename,
   ASSERT_TRUE(Kokkos::abs(site.m_sig - ref_site.m_sig) < epsilon);
   ASSERT_TRUE(Kokkos::abs(site.m_eps - ref_site.m_eps) < epsilon);
   for (int i = 0; i < 3; i++) {
-    ASSERT_TRUE(Kokkos::abs(site.m_r[i] - ref_site.m_r[i]) < epsilon);
+    ASSERT_TRUE(Kokkos::abs(site.m_r[i] - (ref_site.m_r[i] +
+                                           grid.m_length[i] / 2.0)) < epsilon);
   }
   ASSERT_EQ(site.m_z, ref_site.m_z);
 }
