@@ -31,7 +31,7 @@ struct TestSolute : public ::testing::Test {
 
   virtual void SetUp() {
     m_settings = std::make_unique<SettingsType>(
-        "spce", Kokkos::Array<int, 3>({64, 64, 64}),
+        "spce", 1, Kokkos::Array<int, 3>({64, 64, 64}),
         Kokkos::Array<T, 3>({30, 30, 30}), 5, 35, 1.0, 1.0, true, false, 15,
         298.0, true);
 
@@ -62,6 +62,7 @@ void test_solute_init(int n, std::string setting_filename,
   // Check settings
   auto setting = *solute.m_settings;
   ASSERT_EQ(setting.m_solvent, ref_setting.m_solvent);
+  ASSERT_EQ(setting.m_nb_solvent, ref_setting.m_nb_solvent);
   for (int i = 0; i < 3; i++) {
     ASSERT_EQ(setting.m_boxnod[i], ref_setting.m_boxnod[i]);
     ASSERT_TRUE(Kokkos::abs(setting.m_boxlen[i] - ref_setting.m_boxlen[i]) <
@@ -92,8 +93,10 @@ void test_solute_init(int n, std::string setting_filename,
   ASSERT_TRUE(Kokkos::abs(site.m_sig - ref_site.m_sig) < epsilon);
   ASSERT_TRUE(Kokkos::abs(site.m_eps - ref_site.m_eps) < epsilon);
   for (int i = 0; i < 3; i++) {
-    ASSERT_TRUE(Kokkos::abs(site.m_r[i] - (ref_site.m_r[i] +
-                                           grid.m_length[i] / 2.0)) < epsilon);
+    auto m_r = setting.m_translate_solute_to_center
+                   ? ref_site.m_r[i] + grid.m_length[i] / 2.0
+                   : ref_site.m_r[i];
+    ASSERT_TRUE(Kokkos::abs(site.m_r[i] - m_r) < epsilon);
   }
   ASSERT_EQ(site.m_z, ref_site.m_z);
 }

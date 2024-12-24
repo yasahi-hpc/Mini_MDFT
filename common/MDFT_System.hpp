@@ -78,6 +78,11 @@ struct Settings {
   std::string m_solvent;
 
   /**
+   * @brief The number of the solvent.
+   */
+  IntType m_nb_solvent;
+
+  /**
    * @brief Grid sizes of the simulation.
    */
   IntArrayType m_boxnod;
@@ -132,13 +137,14 @@ struct Settings {
    */
   bool m_restart;
 
-  Settings(std::string name, IntArrayType boxnod, ScalarArrayType boxlen,
-           IntType mmax, IntType maximum_iteration_nbr,
+  Settings(std::string name, IntType nb_solvent, IntArrayType boxnod,
+           ScalarArrayType boxlen, IntType mmax, IntType maximum_iteration_nbr,
            ScalarType precision_factor, ScalarType solute_charges_scale_factor,
            bool translate_solute_to_center, bool hard_sphere_solute,
            ScalarType hard_sphere_solute_radius, ScalarType temperature,
            bool restart)
       : m_solvent(name),
+        m_nb_solvent(nb_solvent),
         m_boxnod(boxnod),
         m_boxlen(boxlen),
         m_mmax(mmax),

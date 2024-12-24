@@ -273,6 +273,27 @@ void test_prevent_underflow() {
 }
 
 template <typename T>
+void test_chop() {
+  T x0 = 1.0, x1 = 1.0e-9, x2 = 1.0e-12;
+
+  // With default delta
+  T x0_ref = 1.0, x1_ref = 1.0e-9, x2_ref = 0.0;
+
+  // With custom delta of 1.0e-8
+  T x0_ref2 = 1.0, x1_ref2 = 0.0, x2_ref2 = 0.0;
+
+  T epsilon = std::numeric_limits<T>::epsilon() * 100;
+
+  EXPECT_LT(Kokkos::abs(MDFT::Impl::chop(x0) - x0_ref), epsilon);
+  EXPECT_LT(Kokkos::abs(MDFT::Impl::chop(x1) - x1_ref), epsilon);
+  EXPECT_LT(Kokkos::abs(MDFT::Impl::chop(x2) - x2_ref), epsilon);
+
+  EXPECT_LT(Kokkos::abs(MDFT::Impl::chop(x0, 1.0e-8) - x0_ref2), epsilon);
+  EXPECT_LT(Kokkos::abs(MDFT::Impl::chop(x1, 1.0e-8) - x1_ref2), epsilon);
+  EXPECT_LT(Kokkos::abs(MDFT::Impl::chop(x2, 1.0e-8) - x2_ref2), epsilon);
+}
+
+template <typename T>
 void test_inv_index(T n) {
   // Check if do not crash
   for (T i = 0; i < n; ++i) {
@@ -315,6 +336,13 @@ TYPED_TEST(TestMathUtils, L2normalize) {
 TYPED_TEST(TestMathUtils, PreventUnderflow) {
   using float_type = typename TestFixture::float_type;
   test_prevent_underflow<float_type>();
+}
+
+TYPED_TEST(TestMathUtils, Chop) {
+  using float_type = typename TestFixture::float_type;
+  if constexpr (std::is_same_v<float_type, double>) {
+    test_chop<float_type>();
+  }
 }
 
 TYPED_TEST(TestMathUtilsIntOp, InvIndex) {
