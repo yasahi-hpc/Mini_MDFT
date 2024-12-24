@@ -26,7 +26,7 @@ struct Constants {
   static constexpr ScalarType fourpi    = 4.0 * pi;
   static constexpr ScalarType eightpi   = 8.0 * pi;
   static constexpr ScalarType eightpiSQ = 8.0 * pi * pi;
-  //static constexpr ScalarType sqpi      = sqrt(pi);
+  // static constexpr ScalarType sqpi      = sqrt(pi);
 
   // Electric constant ie Vacuum permittivity in Farad per meter == Coulomb^2
   // per (Joule x meter)
