@@ -133,7 +133,12 @@ struct Solute {
     std::vector<int> boxnod        = json_data["boxnod"];
     std::vector<ScalarType> boxlen = json_data["boxlen"];
     std::string solvent            = json_data["solvent"].get<std::string>();
-    int mmax                       = json_data["mmax"].get<int>();
+    int nb_solvent                 = 1;
+    if (json_data.contains("nb_solvent")) {
+      nb_solvent = json_data["nb_solvent"].get<int>();
+    }
+
+    int mmax                  = json_data["mmax"].get<int>();
     int maximum_iteration_nbr = json_data["maximum_iteration_nbr"].get<int>();
     ScalarType precision_factor =
         json_data["precision_factor"].get<ScalarType>();
@@ -150,7 +155,8 @@ struct Solute {
     ScalarType temperature = json_data["temperature"].get<ScalarType>();
     bool restart           = json_data["restart"].get<bool>();
     m_settings             = std::make_unique<SettingsType>(
-        solvent, Kokkos::Array<int, 3>({boxnod[0], boxnod[1], boxnod[2]}),
+        solvent, nb_solvent,
+        Kokkos::Array<int, 3>({boxnod[0], boxnod[1], boxnod[2]}),
         Kokkos::Array<ScalarType, 3>({boxlen[0], boxlen[1], boxlen[2]}), mmax,
         maximum_iteration_nbr, precision_factor, solute_charges_scale_factor,
         translate_solute_to_center, hard_sphere_solute,

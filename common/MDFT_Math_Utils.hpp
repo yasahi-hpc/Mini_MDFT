@@ -2,6 +2,7 @@
 #define MDFT_MATH_UTILS_HPP
 
 #include <numeric>
+#include <cmath>
 #include <Kokkos_Core.hpp>
 #include <Kokkos_StdAlgorithms.hpp>
 #include <KokkosFFT.hpp>
@@ -132,6 +133,25 @@ KOKKOS_INLINE_FUNCTION ValueType prevent_underflow(const ValueType x,
     if (Kokkos::abs(result) < epsilon) result = 0.0;
   }
   return result;
+}
+
+/**
+ * @brief Replaces numbers smaller in absolute magnitude than a given threshold
+ * with 0.
+ *
+ * This function mimics the behavior of Mathematica's `Chop` function. It
+ * replaces values with an absolute magnitude smaller than `delta` (default:
+ * 1e-10) with 0.
+ *
+ * @tparam RealType The type of the input value.
+ *
+ * @param x [in] The input value to be processed.
+ * @param delta [in] The threshold for chopping small values. Defaults to 1e-10.
+ * @return RealType The processed value: 0 if |x| <= delta, otherwise x.
+ */
+template <typename RealType>
+RealType chop(RealType x, RealType delta = 1e-10) {
+  return (std::abs(x) <= delta) ? 0.0 : x;
 }
 
 }  // namespace Impl

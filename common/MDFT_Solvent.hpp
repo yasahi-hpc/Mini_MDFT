@@ -1,13 +1,542 @@
 #ifndef MDFT_SOLVENT_HPP
 #define MDFT_SOLVENT_HPP
 
+#include <array>
 #include <memory>
+#include <string_view>
+#include <nlohmann/json.hpp>
 #include <KokkosFFT.hpp>
 #include "MDFT_Concepts.hpp"
 #include "MDFT_Asserts.hpp"
+#include "MDFT_System.hpp"
 #include "MDFT_Grid.hpp"
+#include "MDFT_Constants.hpp"
+#include "IO/MDFT_IO_Utils.hpp"
 
 namespace MDFT {
+
+template <KokkosExecutionSpace ExecutionSpace, typename ScalarType>
+struct Correlationfunction {
+  using View1DType = typename Kokkos::View<ScalarType*, ExecutionSpace>;
+
+  std::string m_filename;
+
+  View1DType m_x;
+  View1DType m_y;
+};
+
+static constexpr auto allowed_solvents = std::array<std::string_view, 5>{
+    "spec", "spce-h", "spce-m", "tip3p", "tip3p-m"};
+
+// use consteval to eliminate runtime conversions, zero runtime overhead!
+consteval int const_solvent_index(std::string_view s) {
+  for (int i = 0; i < allowed_solvents.size(); ++i) {
+    if (std::string_view{s} == allowed_solvents[i]) return i;
+  }
+  return -1;
+}
+
+int solvent_index(std::string_view s) {
+  for (int i = 0; i < allowed_solvents.size(); ++i) {
+    if (std::string_view{s} == allowed_solvents[i]) return i;
+  }
+  return -1;
+}
+
+/**
+ * @brief A structure representing a solvent in the MDFT framework.
+ *
+ * @tparam ExecutionSpace The Kokkos execution space.
+ * @tparam ScalarType The type of scalar values used.
+ */
+template <KokkosExecutionSpace ExecutionSpace, typename ScalarType>
+struct Solvent {
+  using IntType          = int;
+  using IntArrayType     = Kokkos::Array<IntType, 6>;
+  using StaticView1DType = typename Kokkos::View<ScalarType[3], ExecutionSpace>;
+  using StaticView2DType =
+      typename Kokkos::View<ScalarType[3][3], ExecutionSpace>;
+  using StaticView3DType =
+      typename Kokkos::View<ScalarType[3][3][3], ExecutionSpace>;
+  using StaticView4DType =
+      typename Kokkos::View<ScalarType[3][3][3][3], ExecutionSpace>;
+  using View4DType = typename Kokkos::View<ScalarType****, ExecutionSpace>;
+  using ComplexView4DType =
+      typename Kokkos::View<Kokkos::complex<ScalarType>****, ExecutionSpace>;
+  using ComplexView5DType =
+      typename Kokkos::View<Kokkos::complex<ScalarType>*****, ExecutionSpace>;
+  using SpatialGridType = SpatialGrid<ExecutionSpace, ScalarType>;
+  using SiteType        = Site<ScalarType>;
+  using SettingsType    = Settings<ScalarType>;
+  using CorrelationfunctionType =
+      Correlationfunction<ExecutionSpace, ScalarType>;
+
+  /**
+   * @brief Name of the solvent.
+   */
+  std::string m_name;
+
+  /**
+   * @brief Molecular rotational symmetry order.
+   */
+  int m_molrotsymorder;
+
+  /**
+   * @brief Number of sites of the solvent molecule.
+   */
+  int m_nsite;
+
+  /**
+   * @brief Number of solvent species.
+   */
+  int m_nspec;
+
+  /**
+   * @brief Monopole moment of the solute.
+   */
+  ScalarType m_monopole;
+
+  /**
+   * @brief Dipole moment of the solute.
+   */
+  StaticView1DType m_dipole;
+
+  /**
+   * @brief Quadrupole moment of the solute.
+   */
+  StaticView2DType m_quadrupole;
+
+  /**
+   * @brief Octupole moment of the solute.
+   */
+  StaticView3DType m_octupole;
+
+  /**
+   * @brief Hexadecupole moment of the solute.
+   */
+  StaticView4DType m_hexadecupole;
+
+  ScalarType m_hs_radius;
+
+  /**
+   * @brief Hard sphere diameter of the solute.
+   */
+  ScalarType m_diameter;
+
+  /**
+   * @brief xi**2=rho/rho0 (io, ix, iy, iz)
+   */
+  View4DType m_xi;
+
+  /**
+   * @brief Vector of sites in the solute.
+   */
+  std::vector<SiteType> m_site;
+
+  /**
+   * @brief Settings of the MDFT simulation.
+   */
+  std::unique_ptr<SettingsType> m_settings;
+
+  // number density of the homogeneous reference fluid in molecules per
+  // Angstrom^3, e.g., 0.033291 molecule.A**-3 for water
+  ScalarType m_n0;
+
+  // number density per orientation of the homogeneous reference fluid in
+  // molecules per Angstrom^3 per orient
+  ScalarType m_rho0;
+
+  // charge factor
+  ComplexView4DType m_sigma_k;
+
+  // molecule polarization factor
+  ComplexView5DType m_molec_polar_k;
+
+  View4DType m_vext;
+
+  View4DType m_vextq;
+
+  // 36.something is the maximum value of v so that exp(-beta.v) does not return
+  // under
+  ScalarType m_vext_threeshold = Constants::qfact / 2.0;
+
+  ScalarType m_mole_fraction = 1.0;
+
+  CorrelationfunctionType m_cs;
+  CorrelationfunctionType m_cdelta;
+  CorrelationfunctionType m_cd;
+
+  // relative permittivity == static dielectric constant = dielectric constant =
+  // coonstante diélectrique
+  ScalarType m_relativePermittivity;
+
+  IntArrayType m_npluc;
+
+  IntType m_n_line_cfile;
+
+ public:
+  void init(std::string name, ScalarType hs_radius, int nsite,
+            int molrotsymorder, std::vector<ScalarType> q,
+            std::vector<ScalarType> sig, std::vector<ScalarType> eps,
+            std::vector<ScalarType> r0, std::vector<ScalarType> r1,
+            std::vector<ScalarType> r2, std::vector<IntType> Z, ScalarType n0,
+            ScalarType rho0, ScalarType relativePermittivity,
+            IntArrayType npluc, IntType n_line_cfile) {
+    m_name           = name;
+    m_hs_radius      = hs_radius;
+    m_nsite          = nsite;
+    m_molrotsymorder = molrotsymorder;
+
+    for (int i = 0; i < m_nsite; i++) {
+      m_site.push_back(
+          SiteType("", q.at(i), sig.at(i), eps.at(i),
+                   Kokkos::Array<ScalarType, 3>({r0.at(i), r1.at(i), r2.at(i)}),
+                   Z.at(i)));
+    }
+
+    m_n0                   = n0;
+    m_rho0                 = rho0;
+    m_relativePermittivity = relativePermittivity;
+    m_npluc                = npluc;
+    m_n_line_cfile         = n_line_cfile;
+
+    // compute monopole, dipole, quadrupole, octupole and hexadecapole of each
+    // solvent species
+
+    // monopole = net charge
+    ScalarType monopole = 0.0;
+    for (int n = 0; n < m_nsite; n++) {
+      monopole += m_site.at(n).m_q;
+    }
+    m_monopole = MDFT::Impl::chop(monopole);
+
+    // dipole
+    for (int i = 0; i < 3; i++) {
+      ScalarType dipole = 0.0;
+      for (int n = 0; n < m_nsite; n++) {
+        auto site = m_site.at(n);
+        dipole += site.m_q * site.m_r(i);
+      }
+      m_dipole(i) = MDFT::Impl::chop(dipole);
+    }
+
+    // quadrupole
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < 3; j++) {
+        ScalarType quadrupole = 0.0;
+        for (int n = 0; n < m_nsite; n++) {
+          auto site = m_site.at(n);
+          quadrupole += site.m_q * site.m_r(i) * site.m_r(j);
+        }
+        m_quadrupole(i, j) = MDFT::Impl::chop(quadrupole);
+      }
+    }
+
+    // octupole
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < 3; j++) {
+        for (int k = 0; k < 3; k++) {
+          ScalarType octupole = 0.0;
+          for (int n = 0; n < m_nsite; n++) {
+            auto site = m_site.at(n);
+            octupole += site.m_q * site.m_r(i) * site.m_r(j) * site.m_r(k);
+          }
+          m_octupole(i, j, k) = MDFT::Impl::chop(octupole);
+        }
+      }
+    }
+
+    // hexadecapole
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < 3; j++) {
+        for (int k = 0; k < 3; k++) {
+          for (int l = 0; l < 3; l++) {
+            ScalarType hexadecapole = 0.0;
+            for (int n = 0; n < m_nsite; n++) {
+              auto site = m_site.at(n);
+              hexadecapole += site.m_q * site.m_r(i) * site.m_r(j) *
+                              site.m_r(k) * site.m_r(l);
+            }
+            m_hexadecupole(i, j, k, l) = MDFT::Impl::chop(hexadecapole);
+          }
+        }
+      }
+    }
+  }
+
+ private:
+};
+
+/**
+ * @brief A structure representing solvents in the MDFT framework.
+ *
+ * @tparam ExecutionSpace The Kokkos execution space.
+ * @tparam ScalarType The type of scalar values used.
+ */
+template <KokkosExecutionSpace ExecutionSpace, typename ScalarType>
+struct Solvents {
+  using json            = nlohmann::json;
+  using IntType         = int;
+  using IntArrayType    = Kokkos::Array<IntType, 6>;
+  using LucArrayType    = Kokkos::Array<IntType, 6>;
+  using ScalarArrayType = Kokkos::Array<ScalarType, 3>;
+  using SpatialGridType = SpatialGrid<ExecutionSpace, ScalarType>;
+  using SolventType     = Solvent<ExecutionSpace, ScalarType>;
+  using SettingsType    = Settings<ScalarType>;
+
+  /**
+   * @brief Settings of the MDFT simulation.
+   */
+  std::unique_ptr<SettingsType> m_settings;
+
+  std::vector<SolventType> m_solvents;
+
+  SpatialGridType m_grid;
+
+ private:
+  /**
+   * @brief Reads simulation settings from a file.
+   *
+   * @param filename The path to the file containing solute properties.
+   */
+  void read_settings(std::string filename) {
+    MDFT::Impl::Throw_If(!IO::Impl::is_file_exists(filename),
+                         "File: " + filename + "does not exist.");
+    std::ifstream f(filename);
+    json json_data = json::parse(f);
+
+    // Read settings
+    std::vector<int> boxnod        = json_data["boxnod"];
+    std::vector<ScalarType> boxlen = json_data["boxlen"];
+    std::string solvent            = json_data["solvent"].get<std::string>();
+    int nb_solvent                 = 1;
+    if (json_data.contains("nb_solvent")) {
+      nb_solvent = json_data["nb_solvent"].get<int>();
+    }
+
+    int mmax                  = json_data["mmax"].get<int>();
+    int maximum_iteration_nbr = json_data["maximum_iteration_nbr"].get<int>();
+    ScalarType precision_factor =
+        json_data["precision_factor"].get<ScalarType>();
+    ScalarType solute_charges_scale_factor =
+        json_data["solute_charges_scale_factor"].get<ScalarType>();
+    bool translate_solute_to_center = true;
+    if (json_data.contains("translate_solute_to_center")) {
+      translate_solute_to_center =
+          json_data["translate_solute_to_center"].get<bool>();
+    }
+    bool hard_sphere_solute = json_data["hard_sphere_solute"].get<bool>();
+    ScalarType hard_sphere_solute_radius =
+        json_data["hard_sphere_solute_radius"].get<ScalarType>();
+    ScalarType temperature = json_data["temperature"].get<ScalarType>();
+    bool restart           = json_data["restart"].get<bool>();
+    m_settings             = std::make_unique<SettingsType>(
+        solvent, nb_solvent,
+        Kokkos::Array<int, 3>({boxnod[0], boxnod[1], boxnod[2]}),
+        Kokkos::Array<ScalarType, 3>({boxlen[0], boxlen[1], boxlen[2]}), mmax,
+        maximum_iteration_nbr, precision_factor, solute_charges_scale_factor,
+        translate_solute_to_center, hard_sphere_solute,
+        hard_sphere_solute_radius, temperature, restart);
+  }
+
+  // Read solvent atomic positions, charge, and lennard jones values in
+  // solvent.in charge in electron units, sigma in Angstroms, epsilon in KJ/mol.
+  void read_solvent() {
+    for (int i = 0; i < m_settings->m_nb_solvent; i++) {
+      m_solvents.push_back(SolventType());
+    }
+
+    read_mole_fractions();
+
+    set_solvent();
+  }
+
+  // This SUBROUTINE open the array input_line which contains every line of
+  // input/dft.in It then reads every line of input_line and looks for the tag
+  // mole_fractions Then, it reads, one line after the other, the mole fractions
+  // of every constituant.
+  void read_mole_fractions() {
+    switch (m_solvents.at(0).m_nspec) {
+      case 1: m_solvents.at(0).m_mole_fraction = 1.0; break;
+      default:
+        for (int i = 0; i < m_settings->m_nb_solvent; i++) {
+          m_solvents.at(i).m_mole_fraction =
+              1.0 / static_cast<ScalarType>(m_solvents.at(0).m_nspec);
+        }
+        break;
+    }
+
+    ScalarType sum = 0;
+    for (int i = 0; i < m_settings->m_nb_solvent; i++) {
+      sum += m_solvents.at(i).m_mole_fraction;
+    }
+
+    ScalarType epsilon = std::numeric_limits<ScalarType>::epsilon() * 100;
+    MDFT::Impl::Throw_If(
+        std::abs(sum - 1.0) > epsilon,
+        "Critial error. Sum of all mole fraction should be equal to one.");
+
+    std::vector<ScalarType> mole_fractions;
+    for (int i = 0; i < m_settings->m_nb_solvent; i++) {
+      mole_fractions.push_back(m_solvents.at(i).m_mole_fraction);
+    }
+
+    MDFT::Impl::Throw_If(
+        std::any_of(Kokkos::begin(mole_fractions), Kokkos::end(mole_fractions),
+                    [](ScalarType value) { return value < 0 || value > 1; }),
+        "Critical errror. Mole fractions should be between 0 and 1");
+  }
+
+  void set_solvent() {
+    // Get the information about the solvent
+    for (int idx = 0; auto solvent : m_solvents) {
+      idx++;
+      std::string solvent_name = solvent.m_name;
+      auto mole_fraction       = solvent.m_mole_fraction;
+      std::cout << "Solvent number " << idx << " is" << solvent_name
+                << " with a molecular fraction of " << mole_fraction
+                << std::endl;
+
+      switch (solvent_index(solvent_name)) {
+        case const_solvent_index("spec"):
+        case const_solvent_index("spce-h"): {
+          ScalarType hs_radius = 0;
+          int nsite            = 3;
+          int molrotsymorder   = 2;
+          std::vector<ScalarType> q({-0.8476, 0.4238, 0.4238});
+          std::vector<ScalarType> sig({3.166, 0., 0.});
+          std::vector<ScalarType> eps({0.65, 0., 0.});
+          std::vector<ScalarType> r0({0.0, 0.0, 0.0});
+          std::vector<ScalarType> r1({0.816495, 0.0, 0.5773525});
+          std::vector<ScalarType> r2({-0.816495, 0.0, 0.5773525});
+          std::vector<IntType> Z({8, 1, 1});
+          ScalarType n0 = 0.0332891 * mole_fraction;
+          ScalarType rho0 =
+              n0 / (8 * Constants::pi * Constants::pi / molrotsymorder);
+          ScalarType relativePermittivity = 71;
+          IntArrayType npluc({1, 6, 75, 252, 877, 2002});
+          IntType n_line_cfile = 1024;
+
+          solvent.init("spce", hs_radius, nsite, molrotsymorder, q, sig, eps,
+                       r0, r1, r2, Z, n0, rho0, relativePermittivity, npluc,
+                       n_line_cfile);
+          MDFT::Impl::Throw_If(
+              m_grid.m_mmax > 5 || m_grid.m_mmax < 0,
+              "solvent spce only avail with mmax between 0 and 5");
+        } break;
+        case const_solvent_index("spce-m"): {
+          std::string tmp_name = "spce";
+          ScalarType hs_radius = 0;
+          int nsite            = 3;
+          int molrotsymorder   = 2;
+          std::vector<ScalarType> q({-1.0, 0.5, 0.5});
+          std::vector<ScalarType> sig({3.166, 0., 0.});
+          std::vector<ScalarType> eps({0.65, 0., 0.});
+          std::vector<ScalarType> r0({0.0, 0.0, 0.0});
+          std::vector<ScalarType> r1({0.816495, 0.0, 0.5773525});
+          std::vector<ScalarType> r2({-0.816495, 0.0, 0.5773525});
+          std::vector<IntType> Z({8, 1, 1});
+          ScalarType n0 = 0.0332891 * mole_fraction;
+          ScalarType rho0 =
+              n0 / (8 * Constants::pi * Constants::pi / molrotsymorder);
+          ScalarType relativePermittivity = 71;
+          IntArrayType npluc({1, 6, 75, 252, 877, 2002});
+          IntType n_line_cfile = 1024;
+
+          solvent.init(tmp_name, hs_radius, nsite, molrotsymorder, q, sig, eps,
+                       r0, r1, r2, Z, n0, rho0, relativePermittivity, npluc,
+                       n_line_cfile);
+          MDFT::Impl::Throw_If(
+              m_grid.m_mmax > 5 || m_grid.m_mmax < 0,
+              "solvent spce only avail with mmax between 0 and 5");
+
+          break;
+        }
+        case const_solvent_index("tip3p"): {
+          std::cout << "case tip3p" << std::endl;
+          ScalarType hs_radius = 0;
+          int nsite            = 3;
+          int molrotsymorder   = 2;
+          std::vector<ScalarType> q({-0.834, 0.417, 0.417});
+          std::vector<ScalarType> sig({3.15061, 0., 0.});
+          std::vector<ScalarType> eps({0.636386, 0., 0.});
+          std::vector<ScalarType> r0({0.0, 0.0, 0.0});
+          std::vector<ScalarType> r1({0.756950, 0.0, 0.585882});
+          std::vector<ScalarType> r2({-0.756950, 0.0, 0.585882});
+          std::vector<IntType> Z({8, 1, 1});
+          ScalarType n0 = 0.03349459 * mole_fraction;
+          ScalarType rho0 =
+              n0 / (8 * Constants::pi * Constants::pi / molrotsymorder);
+          ScalarType relativePermittivity =
+              91;  // cf mail de Luc du 16/12/2016 :
+          IntArrayType npluc({1, 6, 75, 252, 877, 2002});
+          IntType n_line_cfile = 1024;
+
+          solvent.init("tip3p", hs_radius, nsite, molrotsymorder, q, sig, eps,
+                       r0, r1, r2, Z, n0, rho0, relativePermittivity, npluc,
+                       n_line_cfile);
+          MDFT::Impl::Throw_If(
+              m_grid.m_mmax > 5 || m_grid.m_mmax < 0,
+              "solvent tip3p only avail with mmax between 0 and 5");
+
+          break;
+        }
+        case const_solvent_index("tip3p-m"): {
+          std::string tmp_name = "tip3p";
+          ScalarType hs_radius = 0;
+          int nsite            = 3;
+          int molrotsymorder   = 2;
+          std::vector<ScalarType> q({-0.95, 0.475, 0.475});
+          std::vector<ScalarType> sig({3.15061, 0., 0.});
+          std::vector<ScalarType> eps({0.636386, 0., 0.});
+          std::vector<ScalarType> r0({0.0, 0.0, 0.0});
+          std::vector<ScalarType> r1({0.756950, 0.0, 0.585882});
+          std::vector<ScalarType> r2({-0.756950, 0.0, 0.585882});
+          std::vector<IntType> Z({8, 1, 1});
+          ScalarType n0 = 0.03349459 * mole_fraction;
+          ScalarType rho0 =
+              n0 / (8 * Constants::pi * Constants::pi / molrotsymorder);
+          ScalarType relativePermittivity =
+              91;  // cf mail de Luc du 16/12/2016 :
+          IntArrayType npluc({1, 6, 75, 252, 877, 2002});
+          IntType n_line_cfile = 1024;
+
+          solvent.init(tmp_name, hs_radius, nsite, molrotsymorder, q, sig, eps,
+                       r0, r1, r2, Z, n0, rho0, relativePermittivity, npluc,
+                       n_line_cfile);
+          MDFT::Impl::Throw_If(
+              m_grid.m_mmax > 5 || m_grid.m_mmax < 0,
+              "solvent tip3p only avail with mmax between 0 and 5");
+
+          // Je connais ce site. C'est bizarre, la ref.3 pour epsilon(tip3p) n'a
+          // pas fait tip3p! Il y aussi J.Chem.Phys.108, 10220 (1998) qui donne
+          // 82, 94, 86 suivant N et paramètres de réaction field. Ma simulation
+          // rapide N=100 donne 100, et MC/HNC résultant donne 91. Luc
+          break;
+        }
+        default:
+          MDFT::Impl::Throw_If(true, "Critical error. Solvent: " +
+                                         solvent_name + " not recognized.");
+          break;
+      }
+    }
+
+    std::vector<ScalarType> all_molrotsymorder;
+    for (int i = 0; i < m_settings->m_nb_solvent; i++) {
+      all_molrotsymorder.push_back(m_solvents.at(i).m_molrotsymorder);
+    }
+
+    auto molrotsymorder = m_grid.m_molrotsymorder;
+    MDFT::Impl::Throw_If(std::any_of(Kokkos::begin(all_molrotsymorder),
+                                     Kokkos::end(all_molrotsymorder),
+                                     [molrotsymorder](ScalarType value) {
+                                       return value != molrotsymorder;
+                                     }),
+                         "at least one solvent molrotsymorder is different "
+                         "from the grid molrotsymorder");
+  }
+};
+
 // \brief Compute delta_rho(r, Omega) = rho0 * (xi(r, Omega) ^2 - 1)
 // These arrays are stored in the same order, so we just recast this into 1D
 // View and perform the operation with 1D parallel for loop
