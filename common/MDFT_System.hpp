@@ -146,25 +146,8 @@ struct Settings {
    */
   bool m_restart;
 
-  Settings(std::string name, IntType nb_solvent, IntArrayType boxnod,
-           ScalarArrayType boxlen, IntType mmax, IntType maximum_iteration_nbr,
-           ScalarType precision_factor, ScalarType solute_charges_scale_factor,
-           bool translate_solute_to_center, bool hard_sphere_solute,
-           ScalarType hard_sphere_solute_radius, ScalarType temperature,
-           bool restart)
-      : m_solvent(name),
-        m_nb_solvent(nb_solvent),
-        m_boxnod(boxnod),
-        m_boxlen(boxlen),
-        m_mmax(mmax),
-        m_maximum_iteration_nbr(maximum_iteration_nbr),
-        m_precision_factor(precision_factor),
-        m_solute_charges_scale_factor(solute_charges_scale_factor),
-        m_translate_solute_to_center(translate_solute_to_center),
-        m_hard_sphere_solute(hard_sphere_solute),
-        m_hard_sphere_solute_radius(hard_sphere_solute_radius),
-        m_temperature(temperature),
-        m_restart(restart) {}
+  Settings()  = default;
+  ~Settings() = default;
 
   Settings(std::string filename) {
     MDFT::Impl::Throw_If(!IO::Impl::is_file_exists(filename),

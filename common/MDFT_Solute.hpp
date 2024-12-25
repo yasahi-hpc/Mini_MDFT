@@ -95,11 +95,6 @@ struct Solute {
    */
   std::vector<SiteType> m_site;
 
-  /**
-   * @brief Settings of the MDFT simulation.
-   */
-  std::unique_ptr<SettingsType> m_settings;
-
   SpatialGridType m_spatial_grid;
 
   Solute()  = delete;
@@ -109,66 +104,23 @@ struct Solute {
    *
    * @param filename The path to the file containing solute properties.
    */
-  Solute(const SpatialGridType& spatial_grid, std::string setting_filename,
+  Solute(const SpatialGridType& spatial_grid, const SettingsType& settings,
          std::string solute_filename)
       : m_spatial_grid(spatial_grid) {
-    read_settings(setting_filename);
-    read_solute(solute_filename);
-    mv_solute_to_center();
+    read_solute(solute_filename, settings.m_solute_charges_scale_factor);
+    if (settings.m_translate_solute_to_center) {
+      mv_solute_to_center();
+    }
   }
 
  private:
-  /**
-   * @brief Reads simulation settings from a file.
-   *
-   * @param filename The path to the file containing solute properties.
-   */
-  void read_settings(std::string filename) {
-    MDFT::Impl::Throw_If(!IO::Impl::is_file_exists(filename),
-                         "File: " + filename + "does not exist.");
-    std::ifstream f(filename);
-    json json_data = json::parse(f);
-
-    // Read settings
-    std::vector<int> boxnod        = json_data["boxnod"];
-    std::vector<ScalarType> boxlen = json_data["boxlen"];
-    std::string solvent            = json_data["solvent"].get<std::string>();
-    int nb_solvent                 = 1;
-    if (json_data.contains("nb_solvent")) {
-      nb_solvent = json_data["nb_solvent"].get<int>();
-    }
-
-    int mmax                  = json_data["mmax"].get<int>();
-    int maximum_iteration_nbr = json_data["maximum_iteration_nbr"].get<int>();
-    ScalarType precision_factor =
-        json_data["precision_factor"].get<ScalarType>();
-    ScalarType solute_charges_scale_factor =
-        json_data["solute_charges_scale_factor"].get<ScalarType>();
-    bool translate_solute_to_center = true;
-    if (json_data.contains("translate_solute_to_center")) {
-      translate_solute_to_center =
-          json_data["translate_solute_to_center"].get<bool>();
-    }
-    bool hard_sphere_solute = json_data["hard_sphere_solute"].get<bool>();
-    ScalarType hard_sphere_solute_radius =
-        json_data["hard_sphere_solute_radius"].get<ScalarType>();
-    ScalarType temperature = json_data["temperature"].get<ScalarType>();
-    bool restart           = json_data["restart"].get<bool>();
-    m_settings             = std::make_unique<SettingsType>(
-        solvent, nb_solvent,
-        Kokkos::Array<int, 3>({boxnod[0], boxnod[1], boxnod[2]}),
-        Kokkos::Array<ScalarType, 3>({boxlen[0], boxlen[1], boxlen[2]}), mmax,
-        maximum_iteration_nbr, precision_factor, solute_charges_scale_factor,
-        translate_solute_to_center, hard_sphere_solute,
-        hard_sphere_solute_radius, temperature, restart);
-  }
-
   /**
    * @brief Reads solute properties from a file.
    *
    * @param filename The path to the file containing solute properties.
    */
-  void read_solute(std::string filename) {
+  void read_solute(std::string filename,
+                   ScalarType solute_charges_scale_factor) {
     MDFT::Impl::Throw_If(!IO::Impl::is_file_exists(filename),
                          "File: " + filename + "does not exist.");
     std::ifstream f(filename);
@@ -187,7 +139,7 @@ struct Solute {
     std::vector<std::string> Surname   = json_data["Surname"];
 
     for (int i = 0; i < m_nsite; i++) {
-      auto q = charge[i] * m_settings->m_solute_charges_scale_factor;
+      auto q = charge[i] * solute_charges_scale_factor;
       m_site.push_back(SiteType(
           Atom_Name[i], q, sigma[i], epsilon[i],
           Kokkos::Array<ScalarType, 3>({x[i], y[i], z[i]}), Zatomic[i]));
@@ -195,43 +147,41 @@ struct Solute {
   }
 
   void mv_solute_to_center() {
-    if (m_settings->m_translate_solute_to_center) {
-      // what are the coordinates of the middle of the simulation box ?
-      ScalarType coo_midbox_x = m_spatial_grid.m_lx / 2.0;
-      ScalarType coo_midbox_y = m_spatial_grid.m_ly / 2.0;
-      ScalarType coo_midbox_z = m_spatial_grid.m_lz / 2.0;
+    // what are the coordinates of the middle of the simulation box ?
+    ScalarType coo_midbox_x = m_spatial_grid.m_lx / 2.0;
+    ScalarType coo_midbox_y = m_spatial_grid.m_ly / 2.0;
+    ScalarType coo_midbox_z = m_spatial_grid.m_lz / 2.0;
 
-      // what are the coordinates of the center of mass of the solute?
-      // we don't now the mass of the sites as of mdft-dev 2016-07-20.
-      // we'll thus say all sites have the same mass.
-      // Thus, the coordinates of the center of mass is the mean coordinate
-      ScalarType solute_mean_x = 0.0, solute_mean_y = 0.0, solute_mean_z = 0.0;
-      for (int i = 0; i < m_nsite; i++) {
-        solute_mean_x += m_site.at(i).m_r[0] / static_cast<ScalarType>(m_nsite);
-        solute_mean_y += m_site.at(i).m_r[1] / static_cast<ScalarType>(m_nsite);
-        solute_mean_z += m_site.at(i).m_r[2] / static_cast<ScalarType>(m_nsite);
-      }
+    // what are the coordinates of the center of mass of the solute?
+    // we don't now the mass of the sites as of mdft-dev 2016-07-20.
+    // we'll thus say all sites have the same mass.
+    // Thus, the coordinates of the center of mass is the mean coordinate
+    ScalarType solute_mean_x = 0.0, solute_mean_y = 0.0, solute_mean_z = 0.0;
+    for (int i = 0; i < m_nsite; i++) {
+      solute_mean_x += m_site.at(i).m_r[0] / static_cast<ScalarType>(m_nsite);
+      solute_mean_y += m_site.at(i).m_r[1] / static_cast<ScalarType>(m_nsite);
+      solute_mean_z += m_site.at(i).m_r[2] / static_cast<ScalarType>(m_nsite);
+    }
 
-      // Now, we translate this center of mass to the center of the box
-      // by shifting all coordinates (and thus the center of mass).
-      // Removing solute_mean_x, y and z translates the center of mass to
-      // coordinate 0,0,0 Then add coo_midbox_x, y and z to translate the center
-      // of mass to center of the box.
-      for (int i = 0; i < m_nsite; i++) {
-        m_site.at(i).m_r[0] += coo_midbox_x - solute_mean_x;
-        m_site.at(i).m_r[1] += coo_midbox_y - solute_mean_y;
-        m_site.at(i).m_r[2] += coo_midbox_z - solute_mean_z;
-      }
+    // Now, we translate this center of mass to the center of the box
+    // by shifting all coordinates (and thus the center of mass).
+    // Removing solute_mean_x, y and z translates the center of mass to
+    // coordinate 0,0,0 Then add coo_midbox_x, y and z to translate the center
+    // of mass to center of the box.
+    for (int i = 0; i < m_nsite; i++) {
+      m_site.at(i).m_r[0] += coo_midbox_x - solute_mean_x;
+      m_site.at(i).m_r[1] += coo_midbox_y - solute_mean_y;
+      m_site.at(i).m_r[2] += coo_midbox_z - solute_mean_z;
+    }
 
-      // check if some positions are out of the supercell
-      // j is a test tag. We loop over this test until every atom is in the box.
-      // This allows for instance, if a site is two boxes too far to still be
-      // ok.
-      for (int i = 0; i < m_nsite; i++) {
-        for (int d = 0; d < 3; d++) {
-          m_site.at(i).m_r[d] =
-              std::fmod(m_site.at(i).m_r[d], m_spatial_grid.m_length[d]);
-        }
+    // check if some positions are out of the supercell
+    // j is a test tag. We loop over this test until every atom is in the box.
+    // This allows for instance, if a site is two boxes too far to still be
+    // ok.
+    for (int i = 0; i < m_nsite; i++) {
+      for (int d = 0; d < 3; d++) {
+        m_site.at(i).m_r[d] =
+            std::fmod(m_site.at(i).m_r[d], m_spatial_grid.m_length[d]);
       }
     }
   }
