@@ -11,6 +11,7 @@
 #include "MDFT_System.hpp"
 #include "MDFT_Grid.hpp"
 #include "MDFT_Constants.hpp"
+#include "MDFT_Thermo.hpp"
 #include "IO/MDFT_IO_Utils.hpp"
 
 namespace MDFT {
@@ -287,68 +288,38 @@ struct Solvents {
   /**
    * @brief Settings of the MDFT simulation.
    */
-  std::unique_ptr<SettingsType> m_settings;
+  SettingsType m_settings;
 
   std::vector<SolventType> m_solvents;
 
   SpatialGridType m_grid;
 
- private:
+  Solvents()  = delete;
+  ~Solvents() = default;
+
   /**
-   * @brief Reads simulation settings from a file.
+   * @brief Constructs a Solvents object and reads its properties from a file.
    *
-   * @param filename The path to the file containing solute properties.
+   * @param filename The path to the file containing solvent properties.
    */
-  void read_settings(std::string filename) {
-    MDFT::Impl::Throw_If(!IO::Impl::is_file_exists(filename),
-                         "File: " + filename + "does not exist.");
-    std::ifstream f(filename);
-    json json_data = json::parse(f);
-
-    // Read settings
-    std::vector<int> boxnod        = json_data["boxnod"];
-    std::vector<ScalarType> boxlen = json_data["boxlen"];
-    std::string solvent            = json_data["solvent"].get<std::string>();
-    int nb_solvent                 = 1;
-    if (json_data.contains("nb_solvent")) {
-      nb_solvent = json_data["nb_solvent"].get<int>();
-    }
-
-    int mmax                  = json_data["mmax"].get<int>();
-    int maximum_iteration_nbr = json_data["maximum_iteration_nbr"].get<int>();
-    ScalarType precision_factor =
-        json_data["precision_factor"].get<ScalarType>();
-    ScalarType solute_charges_scale_factor =
-        json_data["solute_charges_scale_factor"].get<ScalarType>();
-    bool translate_solute_to_center = true;
-    if (json_data.contains("translate_solute_to_center")) {
-      translate_solute_to_center =
-          json_data["translate_solute_to_center"].get<bool>();
-    }
-    bool hard_sphere_solute = json_data["hard_sphere_solute"].get<bool>();
-    ScalarType hard_sphere_solute_radius =
-        json_data["hard_sphere_solute_radius"].get<ScalarType>();
-    ScalarType temperature = json_data["temperature"].get<ScalarType>();
-    bool restart           = json_data["restart"].get<bool>();
-    m_settings             = std::make_unique<SettingsType>(
-        solvent, nb_solvent,
-        Kokkos::Array<int, 3>({boxnod[0], boxnod[1], boxnod[2]}),
-        Kokkos::Array<ScalarType, 3>({boxlen[0], boxlen[1], boxlen[2]}), mmax,
-        maximum_iteration_nbr, precision_factor, solute_charges_scale_factor,
-        translate_solute_to_center, hard_sphere_solute,
-        hard_sphere_solute_radius, temperature, restart);
+  Solvents(std::string& filename, const SettingsType& settings)
+      : m_settings(settings) {
+    read_solvent();
   }
 
+ private:
   // Read solvent atomic positions, charge, and lennard jones values in
   // solvent.in charge in electron units, sigma in Angstroms, epsilon in KJ/mol.
   void read_solvent() {
-    for (int i = 0; i < m_settings->m_nb_solvent; i++) {
+    for (int i = 0; i < m_settings.m_nb_solvent; i++) {
       m_solvents.push_back(SolventType());
     }
 
     read_mole_fractions();
 
     set_solvent();
+
+    init_density();
   }
 
   // This SUBROUTINE open the array input_line which contains every line of
@@ -359,7 +330,7 @@ struct Solvents {
     switch (m_solvents.at(0).m_nspec) {
       case 1: m_solvents.at(0).m_mole_fraction = 1.0; break;
       default:
-        for (int i = 0; i < m_settings->m_nb_solvent; i++) {
+        for (int i = 0; i < m_settings.m_nb_solvent; i++) {
           m_solvents.at(i).m_mole_fraction =
               1.0 / static_cast<ScalarType>(m_solvents.at(0).m_nspec);
         }
@@ -367,7 +338,7 @@ struct Solvents {
     }
 
     ScalarType sum = 0;
-    for (int i = 0; i < m_settings->m_nb_solvent; i++) {
+    for (int i = 0; i < m_settings.m_nb_solvent; i++) {
       sum += m_solvents.at(i).m_mole_fraction;
     }
 
@@ -377,7 +348,7 @@ struct Solvents {
         "Critial error. Sum of all mole fraction should be equal to one.");
 
     std::vector<ScalarType> mole_fractions;
-    for (int i = 0; i < m_settings->m_nb_solvent; i++) {
+    for (int i = 0; i < m_settings.m_nb_solvent; i++) {
       mole_fractions.push_back(m_solvents.at(i).m_mole_fraction);
     }
 
@@ -522,7 +493,7 @@ struct Solvents {
     }
 
     std::vector<ScalarType> all_molrotsymorder;
-    for (int i = 0; i < m_settings->m_nb_solvent; i++) {
+    for (int i = 0; i < m_settings.m_nb_solvent; i++) {
       all_molrotsymorder.push_back(m_solvents.at(i).m_molrotsymorder);
     }
 
@@ -534,6 +505,12 @@ struct Solvents {
                                      }),
                          "at least one solvent molrotsymorder is different "
                          "from the grid molrotsymorder");
+  }
+
+  void init_density() {
+    for (auto solvent : m_solvents) {
+      solvent->init_density();
+    }
   }
 };
 
