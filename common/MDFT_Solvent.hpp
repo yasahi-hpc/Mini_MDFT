@@ -11,6 +11,7 @@
 #include "MDFT_System.hpp"
 #include "MDFT_Grid.hpp"
 #include "MDFT_Constants.hpp"
+#include "MDFT_Thermo.hpp"
 #include "IO/MDFT_IO_Utils.hpp"
 
 namespace MDFT {
@@ -349,6 +350,8 @@ struct Solvents {
     read_mole_fractions();
 
     set_solvent();
+
+    init_density();
   }
 
   // This SUBROUTINE open the array input_line which contains every line of
@@ -534,6 +537,12 @@ struct Solvents {
                                      }),
                          "at least one solvent molrotsymorder is different "
                          "from the grid molrotsymorder");
+  }
+
+  void init_density() {
+    for (auto solvent : m_solvents) {
+      solvent->init_density();
+    }
   }
 };
 

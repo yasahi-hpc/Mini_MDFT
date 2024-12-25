@@ -9,6 +9,7 @@ add_executable(unit-tests-mini-mdft
     Test_Solvent.cpp
     Test_IO.cpp
     Test_Solute.cpp
+    Test_Thermo.cpp
 )
 
 target_compile_features(unit-tests-mini-mdft PUBLIC cxx_std_20)
