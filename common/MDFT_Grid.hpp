@@ -2,11 +2,13 @@
 #define MDFT_GRID_HPP
 
 #include <numeric>
+#include <memory>
 #include <Kokkos_Core.hpp>
 #include <Kokkos_StdAlgorithms.hpp>
 #include <KokkosFFT.hpp>
 #include "MDFT_Asserts.hpp"
 #include "MDFT_Concepts.hpp"
+#include "MDFT_System.hpp"
 #include "MDFT_Math_Utils.hpp"
 
 namespace MDFT {
@@ -290,6 +292,17 @@ struct AngularGrid {
     Kokkos::deep_copy(m_rotzz, h_rotzz);
   }
 };
+
+template <KokkosExecutionSpace ExecutionSpace, typename ScalarType>
+void init_grid(
+    const Settings<ScalarType>& settings,
+    std::unique_ptr<SpatialGrid<ExecutionSpace, ScalarType>>& grid,
+    std::unique_ptr<AngularGrid<ExecutionSpace, ScalarType>>& angular_grid) {
+  grid = std::make_unique<SpatialGrid<ExecutionSpace, ScalarType>>(
+      settings.m_boxnod, settings.m_boxlen);
+  angular_grid = std::make_unique<AngularGrid<ExecutionSpace, ScalarType>>(
+      settings.m_mmax, settings.m_molrotsymorder);
+}
 }  // namespace MDFT
 
 #endif  // MDFT_GRID_HPP

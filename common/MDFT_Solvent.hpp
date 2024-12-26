@@ -312,15 +312,15 @@ struct Solvents {
   using SolventType     = Solvent<ExecutionSpace, ScalarType>;
   using SettingsType    = Settings<ScalarType>;
 
+  SpatialGridType m_spatial_grid;
+  AngularGridType m_angular_grid;
+
   /**
    * @brief Settings of the MDFT simulation.
    */
   SettingsType m_settings;
 
   std::vector<SolventType> m_solvents;
-
-  SpatialGridType m_spatial_grid;
-  AngularGridType m_angular_grid;
 
   Solvents()  = delete;
   ~Solvents() = default;

@@ -2,6 +2,7 @@
 #include <tuple>
 #include <vector>
 #include <Kokkos_Random.hpp>
+#include "MDFT_System.hpp"
 #include "MDFT_Grid.hpp"
 #include "MDFT_Solvent.hpp"
 #include "Test_Utils.hpp"
