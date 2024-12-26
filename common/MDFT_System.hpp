@@ -101,6 +101,11 @@ struct Settings {
   ScalarArrayType m_boxlen;
 
   /**
+   * @brief molrotsymorder
+   */
+  IntType m_molrotsymorder = 2;
+
+  /**
    * @brief mu_max
    */
   IntType m_mmax;
@@ -171,7 +176,11 @@ struct Settings {
       m_nb_solvent = json_data["nb_solvent"].get<int>();
     }
 
-    m_mmax                  = json_data["mmax"].get<int>();
+    m_mmax = json_data["mmax"].get<int>();
+    if (json_data.contains("molrotsymorder")) {
+      m_molrotsymorder = json_data["molrotsymorder"].get<int>();
+    }
+
     m_maximum_iteration_nbr = json_data["maximum_iteration_nbr"].get<int>();
     m_precision_factor      = json_data["precision_factor"].get<ScalarType>();
     m_solute_charges_scale_factor =
