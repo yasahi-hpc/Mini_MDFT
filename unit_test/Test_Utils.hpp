@@ -1,6 +1,9 @@
 #ifndef TEST_UTILS_HPP
 #define TEST_UTILS_HPP
 
+#include <vector>
+#include <string>
+#include <algorithm>
 #include <Kokkos_Core.hpp>
 #include "MDFT_Concepts.hpp"
 
@@ -35,6 +38,11 @@ bool allclose(const ExecutionSpace& exec, const AViewType& a,
       error);
 
   return error == 0;
+}
+
+inline bool is_included(const std::string& str,
+                        const std::vector<std::string>& vec) {
+  return std::find(vec.begin(), vec.end(), str) != vec.end();
 }
 
 //}  // namespace MDFT
