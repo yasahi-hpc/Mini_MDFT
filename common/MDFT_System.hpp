@@ -59,6 +59,9 @@ struct Site {
    */
   int m_z;
 
+  Site()  = delete;
+  ~Site() = default;
+
   Site(std::string name, ScalarType q, ScalarType sig, ScalarType eps,
        ScalarArrayType r, IntType Z)
       : m_name(name), m_q(q), m_sig(sig), m_eps(eps), m_r(r), m_z(Z) {}
@@ -78,6 +81,7 @@ struct Settings {
 
   /**
    * @brief The name of the solvent.
+   * This may be a list of strings
    */
   std::string m_solvent;
 

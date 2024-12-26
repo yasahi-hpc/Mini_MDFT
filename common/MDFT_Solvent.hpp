@@ -5,6 +5,7 @@
 #include <memory>
 #include <string_view>
 #include <nlohmann/json.hpp>
+#include <Kokkos_StdAlgorithms.hpp>
 #include <KokkosFFT.hpp>
 #include "MDFT_Concepts.hpp"
 #include "MDFT_Asserts.hpp"
@@ -16,6 +17,27 @@
 
 namespace MDFT {
 
+namespace Impl {
+static constexpr auto allowed_solvents = std::array<std::string_view, 5>{
+    "spce", "spce-h", "spce-m", "tip3p", "tip3p-m"};
+
+// use consteval to eliminate runtime conversions, zero runtime overhead!
+consteval int const_solvent_index(std::string_view s) {
+  for (std::size_t i = 0; i < allowed_solvents.size(); ++i) {
+    if (std::string_view{s} == allowed_solvents[i]) return int(i);
+  }
+  return -1;
+}
+
+int solvent_index(std::string_view s) {
+  for (std::size_t i = 0; i < allowed_solvents.size(); ++i) {
+    if (std::string_view{s} == allowed_solvents[i]) return int(i);
+  }
+  return -1;
+}
+
+}  // namespace Impl
+
 template <KokkosExecutionSpace ExecutionSpace, typename ScalarType>
 struct Correlationfunction {
   using View1DType = typename Kokkos::View<ScalarType*, ExecutionSpace>;
@@ -25,24 +47,6 @@ struct Correlationfunction {
   View1DType m_x;
   View1DType m_y;
 };
-
-static constexpr auto allowed_solvents = std::array<std::string_view, 5>{
-    "spec", "spce-h", "spce-m", "tip3p", "tip3p-m"};
-
-// use consteval to eliminate runtime conversions, zero runtime overhead!
-consteval int const_solvent_index(std::string_view s) {
-  for (int i = 0; i < allowed_solvents.size(); ++i) {
-    if (std::string_view{s} == allowed_solvents[i]) return i;
-  }
-  return -1;
-}
-
-int solvent_index(std::string_view s) {
-  for (int i = 0; i < allowed_solvents.size(); ++i) {
-    if (std::string_view{s} == allowed_solvents[i]) return i;
-  }
-  return -1;
-}
 
 /**
  * @brief A structure representing a solvent in the MDFT framework.
@@ -90,7 +94,7 @@ struct Solvent {
   /**
    * @brief Number of solvent species.
    */
-  int m_nspec;
+  // int m_nspec;
 
   /**
    * @brief Monopole moment of the solute.
@@ -133,11 +137,6 @@ struct Solvent {
    * @brief Vector of sites in the solute.
    */
   std::vector<SiteType> m_site;
-
-  /**
-   * @brief Settings of the MDFT simulation.
-   */
-  std::unique_ptr<SettingsType> m_settings;
 
   // number density of the homogeneous reference fluid in molecules per
   // Angstrom^3, e.g., 0.033291 molecule.A**-3 for water
@@ -204,6 +203,17 @@ struct Solvent {
     // compute monopole, dipole, quadrupole, octupole and hexadecapole of each
     // solvent species
 
+    // View allocation
+    m_dipole       = StaticView1DType("dipole");
+    m_quadrupole   = StaticView2DType("quadrupole");
+    m_octupole     = StaticView3DType("octupole");
+    m_hexadecupole = StaticView4DType("hexadecupole");
+
+    auto h_dipole       = Kokkos::create_mirror_view(m_dipole);
+    auto h_quadrupole   = Kokkos::create_mirror_view(m_quadrupole);
+    auto h_octupole     = Kokkos::create_mirror_view(m_octupole);
+    auto h_hexadecupole = Kokkos::create_mirror_view(m_hexadecupole);
+
     // monopole = net charge
     ScalarType monopole = 0.0;
     for (int n = 0; n < m_nsite; n++) {
@@ -216,9 +226,9 @@ struct Solvent {
       ScalarType dipole = 0.0;
       for (int n = 0; n < m_nsite; n++) {
         auto site = m_site.at(n);
-        dipole += site.m_q * site.m_r(i);
+        dipole += site.m_q * site.m_r[i];
       }
-      m_dipole(i) = MDFT::Impl::chop(dipole);
+      h_dipole(i) = MDFT::Impl::chop(dipole);
     }
 
     // quadrupole
@@ -227,9 +237,9 @@ struct Solvent {
         ScalarType quadrupole = 0.0;
         for (int n = 0; n < m_nsite; n++) {
           auto site = m_site.at(n);
-          quadrupole += site.m_q * site.m_r(i) * site.m_r(j);
+          quadrupole += site.m_q * site.m_r[i] * site.m_r[j];
         }
-        m_quadrupole(i, j) = MDFT::Impl::chop(quadrupole);
+        h_quadrupole(i, j) = MDFT::Impl::chop(quadrupole);
       }
     }
 
@@ -240,9 +250,9 @@ struct Solvent {
           ScalarType octupole = 0.0;
           for (int n = 0; n < m_nsite; n++) {
             auto site = m_site.at(n);
-            octupole += site.m_q * site.m_r(i) * site.m_r(j) * site.m_r(k);
+            octupole += site.m_q * site.m_r[i] * site.m_r[j] * site.m_r[k];
           }
-          m_octupole(i, j, k) = MDFT::Impl::chop(octupole);
+          h_octupole(i, j, k) = MDFT::Impl::chop(octupole);
         }
       }
     }
@@ -255,14 +265,30 @@ struct Solvent {
             ScalarType hexadecapole = 0.0;
             for (int n = 0; n < m_nsite; n++) {
               auto site = m_site.at(n);
-              hexadecapole += site.m_q * site.m_r(i) * site.m_r(j) *
-                              site.m_r(k) * site.m_r(l);
+              hexadecapole += site.m_q * site.m_r[i] * site.m_r[j] *
+                              site.m_r[k] * site.m_r[l];
             }
-            m_hexadecupole(i, j, k, l) = MDFT::Impl::chop(hexadecapole);
+            h_hexadecupole(i, j, k, l) = MDFT::Impl::chop(hexadecapole);
           }
         }
       }
     }
+
+    Kokkos::deep_copy(m_dipole, h_dipole);
+    Kokkos::deep_copy(m_quadrupole, h_quadrupole);
+    Kokkos::deep_copy(m_octupole, h_octupole);
+    Kokkos::deep_copy(m_hexadecupole, h_hexadecupole);
+  }
+  void init_density(const int nx, const int ny, const int nz, const int no) {
+    // guess density (from module_density.f90)
+    m_xi = View4DType("xi", nx, ny, nz, no);
+
+    // Initialization made on device on a flatten view
+    // Note vext is not allocated so, m_xi is initialized with 1.0
+    using exec_space = ExecutionSpace;
+    using View1DType = typename Kokkos::View<ScalarType*, ExecutionSpace>;
+    View1DType xi(m_xi.data(), m_xi.size());
+    Kokkos::Experimental::fill(exec_space(), xi, 1.0);
   }
 
  private:
@@ -282,6 +308,7 @@ struct Solvents {
   using LucArrayType    = Kokkos::Array<IntType, 6>;
   using ScalarArrayType = Kokkos::Array<ScalarType, 3>;
   using SpatialGridType = SpatialGrid<ExecutionSpace, ScalarType>;
+  using AngularGridType = AngularGrid<ExecutionSpace, ScalarType>;
   using SolventType     = Solvent<ExecutionSpace, ScalarType>;
   using SettingsType    = Settings<ScalarType>;
 
@@ -292,7 +319,8 @@ struct Solvents {
 
   std::vector<SolventType> m_solvents;
 
-  SpatialGridType m_grid;
+  SpatialGridType m_spatial_grid;
+  AngularGridType m_angular_grid;
 
   Solvents()  = delete;
   ~Solvents() = default;
@@ -302,8 +330,11 @@ struct Solvents {
    *
    * @param filename The path to the file containing solvent properties.
    */
-  Solvents(std::string& filename, const SettingsType& settings)
-      : m_settings(settings) {
+  Solvents(const SpatialGridType& spatial_grid,
+           const AngularGridType& angular_grid, const SettingsType& settings)
+      : m_spatial_grid(spatial_grid),
+        m_angular_grid(angular_grid),
+        m_settings(settings) {
     read_solvent();
   }
 
@@ -316,9 +347,7 @@ struct Solvents {
     }
 
     read_mole_fractions();
-
     set_solvent();
-
     init_density();
   }
 
@@ -327,12 +356,12 @@ struct Solvents {
   // mole_fractions Then, it reads, one line after the other, the mole fractions
   // of every constituant.
   void read_mole_fractions() {
-    switch (m_solvents.at(0).m_nspec) {
+    switch (m_settings.m_nb_solvent) {
       case 1: m_solvents.at(0).m_mole_fraction = 1.0; break;
       default:
         for (int i = 0; i < m_settings.m_nb_solvent; i++) {
           m_solvents.at(i).m_mole_fraction =
-              1.0 / static_cast<ScalarType>(m_solvents.at(0).m_nspec);
+              1.0 / static_cast<ScalarType>(m_settings.m_nb_solvent);
         }
         break;
     }
@@ -348,29 +377,28 @@ struct Solvents {
         "Critial error. Sum of all mole fraction should be equal to one.");
 
     std::vector<ScalarType> mole_fractions;
-    for (int i = 0; i < m_settings.m_nb_solvent; i++) {
+    for (std::size_t i = 0; i < m_settings.m_nb_solvent; i++) {
       mole_fractions.push_back(m_solvents.at(i).m_mole_fraction);
     }
 
     MDFT::Impl::Throw_If(
-        std::any_of(Kokkos::begin(mole_fractions), Kokkos::end(mole_fractions),
+        std::any_of(mole_fractions.begin(), mole_fractions.end(),
                     [](ScalarType value) { return value < 0 || value > 1; }),
         "Critical errror. Mole fractions should be between 0 and 1");
   }
 
   void set_solvent() {
     // Get the information about the solvent
-    for (int idx = 0; auto solvent : m_solvents) {
-      idx++;
-      std::string solvent_name = solvent.m_name;
-      auto mole_fraction       = solvent.m_mole_fraction;
-      std::cout << "Solvent number " << idx << " is" << solvent_name
+    for (std::size_t i = 0; i < m_settings.m_nb_solvent; i++) {
+      std::string solvent_name = m_settings.m_solvent;
+      auto mole_fraction       = m_solvents.at(i).m_mole_fraction;
+      std::cout << "Solvent number " << i << " is " << solvent_name
                 << " with a molecular fraction of " << mole_fraction
                 << std::endl;
 
-      switch (solvent_index(solvent_name)) {
-        case const_solvent_index("spec"):
-        case const_solvent_index("spce-h"): {
+      switch (Impl::solvent_index(solvent_name)) {
+        case Impl::const_solvent_index("spce"):
+        case Impl::const_solvent_index("spce-h"): {
           ScalarType hs_radius = 0;
           int nsite            = 3;
           int molrotsymorder   = 2;
@@ -388,14 +416,14 @@ struct Solvents {
           IntArrayType npluc({1, 6, 75, 252, 877, 2002});
           IntType n_line_cfile = 1024;
 
-          solvent.init("spce", hs_radius, nsite, molrotsymorder, q, sig, eps,
-                       r0, r1, r2, Z, n0, rho0, relativePermittivity, npluc,
-                       n_line_cfile);
+          m_solvents.at(i).init("spce", hs_radius, nsite, molrotsymorder, q,
+                                sig, eps, r0, r1, r2, Z, n0, rho0,
+                                relativePermittivity, npluc, n_line_cfile);
           MDFT::Impl::Throw_If(
-              m_grid.m_mmax > 5 || m_grid.m_mmax < 0,
+              m_angular_grid.m_mmax > 5 || m_angular_grid.m_mmax < 0,
               "solvent spce only avail with mmax between 0 and 5");
         } break;
-        case const_solvent_index("spce-m"): {
+        case Impl::const_solvent_index("spce-m"): {
           std::string tmp_name = "spce";
           ScalarType hs_radius = 0;
           int nsite            = 3;
@@ -414,16 +442,16 @@ struct Solvents {
           IntArrayType npluc({1, 6, 75, 252, 877, 2002});
           IntType n_line_cfile = 1024;
 
-          solvent.init(tmp_name, hs_radius, nsite, molrotsymorder, q, sig, eps,
-                       r0, r1, r2, Z, n0, rho0, relativePermittivity, npluc,
-                       n_line_cfile);
+          m_solvents.at(i).init(tmp_name, hs_radius, nsite, molrotsymorder, q,
+                                sig, eps, r0, r1, r2, Z, n0, rho0,
+                                relativePermittivity, npluc, n_line_cfile);
           MDFT::Impl::Throw_If(
-              m_grid.m_mmax > 5 || m_grid.m_mmax < 0,
+              m_angular_grid.m_mmax > 5 || m_angular_grid.m_mmax < 0,
               "solvent spce only avail with mmax between 0 and 5");
 
           break;
         }
-        case const_solvent_index("tip3p"): {
+        case Impl::const_solvent_index("tip3p"): {
           std::cout << "case tip3p" << std::endl;
           ScalarType hs_radius = 0;
           int nsite            = 3;
@@ -443,16 +471,16 @@ struct Solvents {
           IntArrayType npluc({1, 6, 75, 252, 877, 2002});
           IntType n_line_cfile = 1024;
 
-          solvent.init("tip3p", hs_radius, nsite, molrotsymorder, q, sig, eps,
-                       r0, r1, r2, Z, n0, rho0, relativePermittivity, npluc,
-                       n_line_cfile);
+          m_solvents.at(i).init("tip3p", hs_radius, nsite, molrotsymorder, q,
+                                sig, eps, r0, r1, r2, Z, n0, rho0,
+                                relativePermittivity, npluc, n_line_cfile);
           MDFT::Impl::Throw_If(
-              m_grid.m_mmax > 5 || m_grid.m_mmax < 0,
+              m_angular_grid.m_mmax > 5 || m_angular_grid.m_mmax < 0,
               "solvent tip3p only avail with mmax between 0 and 5");
 
           break;
         }
-        case const_solvent_index("tip3p-m"): {
+        case Impl::const_solvent_index("tip3p-m"): {
           std::string tmp_name = "tip3p";
           ScalarType hs_radius = 0;
           int nsite            = 3;
@@ -472,11 +500,11 @@ struct Solvents {
           IntArrayType npluc({1, 6, 75, 252, 877, 2002});
           IntType n_line_cfile = 1024;
 
-          solvent.init(tmp_name, hs_radius, nsite, molrotsymorder, q, sig, eps,
-                       r0, r1, r2, Z, n0, rho0, relativePermittivity, npluc,
-                       n_line_cfile);
+          m_solvents.at(i).init(tmp_name, hs_radius, nsite, molrotsymorder, q,
+                                sig, eps, r0, r1, r2, Z, n0, rho0,
+                                relativePermittivity, npluc, n_line_cfile);
           MDFT::Impl::Throw_If(
-              m_grid.m_mmax > 5 || m_grid.m_mmax < 0,
+              m_angular_grid.m_mmax > 5 || m_angular_grid.m_mmax < 0,
               "solvent tip3p only avail with mmax between 0 and 5");
 
           // Je connais ce site. C'est bizarre, la ref.3 pour epsilon(tip3p) n'a
@@ -493,23 +521,24 @@ struct Solvents {
     }
 
     std::vector<ScalarType> all_molrotsymorder;
-    for (int i = 0; i < m_settings.m_nb_solvent; i++) {
+    for (std::size_t i = 0; i < m_settings.m_nb_solvent; i++) {
       all_molrotsymorder.push_back(m_solvents.at(i).m_molrotsymorder);
     }
 
-    auto molrotsymorder = m_grid.m_molrotsymorder;
-    MDFT::Impl::Throw_If(std::any_of(Kokkos::begin(all_molrotsymorder),
-                                     Kokkos::end(all_molrotsymorder),
-                                     [molrotsymorder](ScalarType value) {
-                                       return value != molrotsymorder;
-                                     }),
-                         "at least one solvent molrotsymorder is different "
-                         "from the grid molrotsymorder");
+    auto molrotsymorder = m_angular_grid.m_molrotsymorder;
+    MDFT::Impl::Throw_If(
+        std::any_of(all_molrotsymorder.begin(), all_molrotsymorder.end(),
+                    [molrotsymorder](ScalarType value) {
+                      return value != molrotsymorder;
+                    }),
+        "at least one solvent molrotsymorder is different "
+        "from the grid molrotsymorder");
   }
 
   void init_density() {
-    for (auto solvent : m_solvents) {
-      solvent->init_density();
+    for (auto& solvent : m_solvents) {
+      solvent.init_density(m_spatial_grid.m_nx, m_spatial_grid.m_ny,
+                           m_spatial_grid.m_nz, m_angular_grid.m_no);
     }
   }
 };
