@@ -15,34 +15,54 @@ using float_types     = ::testing::Types<float, double>;
 
 template <typename T>
 struct TestSolute : public ::testing::Test {
-  using float_type           = T;
-  using scalar_array_type    = Kokkos::Array<T, 3>;
-  using int_array_type       = Kokkos::Array<int, 3>;
-  using SettingsType         = MDFT::Settings<float_type>;
-  using SiteType             = MDFT::Site<float_type>;
-  std::string m_setting_file = "dft.json";
-  std::string m_solute_file  = "solute.json";
+  using float_type        = T;
+  using scalar_array_type = Kokkos::Array<T, 3>;
+  using int_array_type    = Kokkos::Array<int, 3>;
+  using SettingsType      = MDFT::Settings<float_type>;
+  using SiteType          = MDFT::Site<float_type>;
+  std::map<std::string, SettingsType> m_setting_files;
+  // std::string m_setting_file = "dft.json";
+  std::string m_solute_file = "solute.json";
 
-  SettingsType m_settings;
+  // SettingsType m_settings;
   std::unique_ptr<SiteType> m_site;
 
   // Executed from build/unit_test
   std::string m_file_path = "../../input";
 
   virtual void SetUp() {
-    m_settings.m_solvent                     = "spce";
-    m_settings.m_nb_solvent                  = 1;
-    m_settings.m_boxnod                      = int_array_type({64, 64, 64});
-    m_settings.m_boxlen                      = scalar_array_type({30, 30, 30});
-    m_settings.m_mmax                        = 5;
-    m_settings.m_maximum_iteration_nbr       = 35;
-    m_settings.m_precision_factor            = 1.0;
-    m_settings.m_solute_charges_scale_factor = 1.0;
-    m_settings.m_translate_solute_to_center  = true;
-    m_settings.m_hard_sphere_solute          = false;
-    m_settings.m_hard_sphere_solute_radius   = 15;
-    m_settings.m_temperature                 = 298.0;
-    m_settings.m_restart                     = true;
+    SettingsType settings, settings2;
+
+    settings.m_solvent                     = "spce";
+    settings.m_nb_solvent                  = 1;
+    settings.m_boxnod                      = int_array_type({64, 64, 64});
+    settings.m_boxlen                      = scalar_array_type({30, 30, 30});
+    settings.m_mmax                        = 5;
+    settings.m_maximum_iteration_nbr       = 35;
+    settings.m_precision_factor            = 1.0;
+    settings.m_solute_charges_scale_factor = 1.0;
+    settings.m_translate_solute_to_center  = true;
+    settings.m_hard_sphere_solute          = false;
+    settings.m_hard_sphere_solute_radius   = 15;
+    settings.m_temperature                 = 298.0;
+    settings.m_restart                     = true;
+
+    settings2.m_solvent                     = "tip3p";
+    settings2.m_nb_solvent                  = 1;
+    settings2.m_boxnod                      = int_array_type({64, 64, 64});
+    settings2.m_boxlen                      = scalar_array_type({30, 30, 30});
+    settings2.m_mmax                        = 3;
+    settings2.m_maximum_iteration_nbr       = 35;
+    settings2.m_precision_factor            = 1.0;
+    settings2.m_solute_charges_scale_factor = 1.0;
+    settings2.m_translate_solute_to_center  = true;
+    settings2.m_hard_sphere_solute          = false;
+    settings2.m_hard_sphere_solute_radius   = 15;
+    settings2.m_temperature                 = 298.0;
+    settings2.m_restart                     = false;
+
+    m_setting_files["dft.json"]  = settings;
+    m_setting_files["dft2.json"] = settings2;
 
     m_site = std::make_unique<SiteType>(
         "I", 1.0 * 1.0, 2.93, 0.759, Kokkos::Array<T, 3>({0.0, 0.0, 0.0}), 17);
@@ -54,7 +74,8 @@ TYPED_TEST_SUITE(TestSolute, float_types);
 template <typename T, typename IntArrayType, typename ScalarArrayType>
 void test_solute_init(int n, std::string setting_filename,
                       std::string solute_filename,
-                      MDFT::Settings<T> &ref_setting, MDFT::Site<T> &ref_site) {
+                      const MDFT::Settings<T> &ref_setting,
+                      const MDFT::Site<T> &ref_site) {
   // Check if setting file is correctly read
   MDFT::Settings<T> settings(setting_filename);
 
@@ -114,10 +135,12 @@ TYPED_TEST(TestSolute, Initialization) {
   using int_array_type    = typename TestFixture::int_array_type;
   using scalar_array_type = typename TestFixture::scalar_array_type;
 
-  test_solute_init<float_type, int_array_type, scalar_array_type>(
-      10, this->m_file_path + "/" + this->m_setting_file,
-      this->m_file_path + "/" + this->m_solute_file, this->m_settings,
-      *(this->m_site));
+  for (const auto &[setting_file, settings] : this->m_setting_files) {
+    test_solute_init<float_type, int_array_type, scalar_array_type>(
+        10, this->m_file_path + "/" + setting_file,
+        this->m_file_path + "/" + this->m_solute_file, settings,
+        *(this->m_site));
+  }
 }
 
 }  // namespace
