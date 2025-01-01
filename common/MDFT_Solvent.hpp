@@ -310,10 +310,14 @@ struct Solvents {
   using SpatialGridType = SpatialGrid<ExecutionSpace, ScalarType>;
   using AngularGridType = AngularGrid<ExecutionSpace, ScalarType>;
   using SolventType     = Solvent<ExecutionSpace, ScalarType>;
+  using ThermoType      = Thermo<ScalarType>;
   using SettingsType    = Settings<ScalarType>;
 
   SpatialGridType m_spatial_grid;
   AngularGridType m_angular_grid;
+  ThermoType m_thermo;
+
+  ScalarType m_prefactor;
 
   /**
    * @brief Settings of the MDFT simulation.
@@ -331,10 +335,12 @@ struct Solvents {
    * @param filename The path to the file containing solvent properties.
    */
   Solvents(const SpatialGridType& spatial_grid,
-           const AngularGridType& angular_grid, const SettingsType& settings)
+           const AngularGridType& angular_grid, const SettingsType& settings,
+           const ThermoType& thermo)
       : m_spatial_grid(spatial_grid),
         m_angular_grid(angular_grid),
-        m_settings(settings) {
+        m_settings(settings),
+        m_thermo(thermo) {
     read_solvent();
   }
 
@@ -348,7 +354,12 @@ struct Solvents {
 
     read_mole_fractions();
     set_solvent();
-    init_density();
+    init_density();  // [TO DO] remove this, init should be made in the
+                     // constructor of solvent class
+    // the division by n0 comes from Luc's normalization of c
+    auto mrso   = m_angular_grid.m_molrotsymorder;
+    m_prefactor = -2 * m_thermo.m_kbt * 4 * Constants::pi * Constants::pi /
+                  mrso / m_solvents.at(0).m_n0;
   }
 
   // This SUBROUTINE open the array input_line which contains every line of
@@ -584,40 +595,37 @@ void get_delta_rho(const ExecutionSpace& exec_space, const ViewType& xi,
 // \tparam ScalarType Scalar type
 //
 // \param exec_space [in] Execution space instance
-// \param xi [in] 6D View of xi, shape(nx, ny, nz, ntheta, nphi, npsi)
-// \param vexc [in] 3D View of vexc, shape(ntheta, nphi, npsi)
-// \param w [in] 3D View of w, shape(ntheta, nphi, npsi) (volume element in
+// \param xi [in] 4D View of xi, shape(nx, ny, nz, ntheta*nphi*npsi)
+// \param vexc [in] 4D View of vexc, shape(nx, ny, nz, ntheta*nphi*npsi)
+// \param w [in] 1D View of w, shape(ntheta*nphi*npsi) (volume element in
 // angular space?)
-// \param delta_f [out] 6D View of delta_f, shape(nx, ny, nz,
-// ntheta, nphi, npsi)
+// \param delta_f [out] 4D View of delta_f, shape(nx, ny, nz,
+// ntheta*nphi*npsi)
 // \param ff [out] density fluctuation
 // \param rho0 [in] Reference density
 // \param prefactor [in] Coefficient prefactor
-template <KokkosExecutionSpace ExecutionSpace, KokkosView View6DType,
-          KokkosView View3DType, typename ScalarType>
-  requires KokkosViewAccesible<ExecutionSpace, View3DType> &&
-           KokkosViewAccesible<ExecutionSpace, View6DType>
-void get_delta_f(const ExecutionSpace& exec_space, const View6DType& xi,
-                 const View3DType& vexc, const View3DType& w,
-                 const View6DType& delta_f, ScalarType& ff,
+template <KokkosExecutionSpace ExecutionSpace, KokkosView View1DType,
+          KokkosView View4DType, typename ScalarType>
+  requires KokkosViewAccesible<ExecutionSpace, View1DType> &&
+           KokkosViewAccesible<ExecutionSpace, View4DType>
+void get_delta_f(const ExecutionSpace& exec_space, const View4DType& xi,
+                 const View4DType& vexc, const View1DType& w,
+                 const View4DType& delta_f, ScalarType& ff,
                  const ScalarType rho0, const ScalarType prefactor) {
   const std::size_t nx = xi.extent(0), ny = xi.extent(1), nz = xi.extent(2),
-                    ntheta = xi.extent(3), nphi = xi.extent(4),
-                    npsi = xi.extent(5);
+                    no = xi.extent(3);
 
-  for (int i = 0; i < 3; i++) {
-    MDFT::Impl::Throw_If(xi.extent(i + 3) != vexc.extent(i),
+  for (int i = 0; i < 4; i++) {
+    MDFT::Impl::Throw_If(xi.extent(i) != vexc.extent(i),
                          "angular grid size of xi and vexc must be the same");
   }
 
   // Flatten Views for simplicity
-  const std::size_t nxyz = nx * ny * nz, nangle = ntheta * nphi * npsi;
-  using ValueType  = typename View6DType::non_const_value_type;
-  using View1DType = Kokkos::View<ValueType*, ExecutionSpace>;
-  using View2DType = Kokkos::View<ValueType**, ExecutionSpace>;
-  View1DType vexc_1d(vexc.data(), nangle), w_1d(w.data(), nangle);
-  View2DType delta_f_2d(delta_f.data(), nxyz, nangle),
-      xi_2d(xi.data(), nxyz, nangle);
+  const std::size_t nxyz = nx * ny * nz;
+  using ValueType        = typename View4DType::non_const_value_type;
+  using View2DType       = Kokkos::View<ValueType**, ExecutionSpace>;
+  View2DType delta_f_2d(delta_f.data(), nxyz, no), xi_2d(xi.data(), nxyz, no),
+      vexc_2d(vexc.data(), nxyz, no);
 
   ff                = 0;
   using member_type = typename Kokkos::TeamPolicy<ExecutionSpace>::member_type;
@@ -629,11 +637,12 @@ void get_delta_f(const ExecutionSpace& exec_space, const View6DType& xi,
         const auto ixyz = team_member.league_rank();
         ValueType sum   = 0;
         Kokkos::parallel_reduce(
-            Kokkos::ThreadVectorRange(team_member, nangle),
-            [&](const int ip, ValueType& lsum) {
-              lsum += vexc_1d(ip) * w_1d(ip) *
-                      (xi_2d(ixyz, ip) * xi_2d(ixyz, ip) - 1.0);
-              delta_f_2d(ixyz, ip) = 2.0 * rho0 * xi_2d(ixyz, ip) * vexc_1d(ip);
+            Kokkos::ThreadVectorRange(team_member, no),
+            [&](const int io, ValueType& lsum) {
+              lsum += vexc_2d(ixyz, io) * w(io) *
+                      (xi_2d(ixyz, io) * xi_2d(ixyz, io) - 1.0);
+              delta_f_2d(ixyz, io) =
+                  2.0 * rho0 * xi_2d(ixyz, io) * vexc_2d(ixyz, io);
             },
             sum);
         l_ff += rho0 * sum * prefactor;

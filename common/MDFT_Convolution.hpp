@@ -302,8 +302,7 @@ class Convolution {
               s_deltarho_p_mq(team_member.team_scratch(level), np);
 
           Kokkos::parallel_for(
-              Kokkos::TeamThreadRange<member_type>(team_member, np),
-              [&](const int ip) {
+              Kokkos::TeamThreadRange(team_member, np), [&](const int ip) {
                 s_gamma_p_q(ip)  = deltarho_p(ip, iz, iy, ix);
                 s_gamma_p_mq(ip) = deltarho_p(ip, iz_mq, iy_mq, ix_mq);
                 auto im          = p_to_m(ip);
@@ -335,16 +334,14 @@ class Convolution {
           ScalarType alpha = effectiveiq - static_cast<ScalarType>(iq);
 
           // This loop is incorrect
-          Kokkos::parallel_for(
-              Kokkos::TeamThreadRange<member_type>(team_member, np),
-              [&](const int ip) {
-                ceff(ip) = alpha * mnmunukhi_q(ip, iq + 1) +
-                           (1.0 - alpha) * mnmunukhi_q(ip, iq);
-              });
+          Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, np),
+                               [&](const int ip) {
+                                 ceff(ip) = alpha * mnmunukhi_q(ip, iq + 1) +
+                                            (1.0 - alpha) * mnmunukhi_q(ip, iq);
+                               });
 
           Kokkos::parallel_for(
-              Kokkos::TeamThreadRange<member_type>(team_member, np),
-              [&](const int ip) {
+              Kokkos::TeamThreadRange(team_member, np), [&](const int ip) {
                 s_gamma_p_q(ip)  = Kokkos::complex<ScalarType>(0.0, 0.0);
                 s_gamma_p_mq(ip) = Kokkos::complex<ScalarType>(0.0, 0.0);
 
@@ -360,20 +357,19 @@ class Convolution {
                       s_gamma_p_q(ip) =
                           s_gamma_p_q(ip) +
                           ceff(ia) *
-                              deltarho_p_q(p_map(n, ikhi, Kokkos::abs(nu2)));
+                              s_deltarho_p_q(p_map(n, ikhi, Kokkos::abs(nu2)));
                       s_gamma_p_mq(ip) =
                           s_gamma_p_mq(ip) +
                           ceff(ia) *
-                              deltarho_p_mq(p_map(n, ikhi, Kokkos::abs(nu2)));
+                              s_deltarho_p_mq(p_map(n, ikhi, Kokkos::abs(nu2)));
                     } else {
-                      s_gamma_p_q(ip) =
-                          s_gamma_p_q(ip) +
-                          ceff(ia) *
-                              Kokkos::conj(deltarho_p_mq(p_map(n, ikhi, nu2)));
+                      s_gamma_p_q(ip) = s_gamma_p_q(ip) +
+                                        ceff(ia) * Kokkos::conj(s_deltarho_p_mq(
+                                                       p_map(n, ikhi, nu2)));
                       s_gamma_p_mq(ip) =
                           s_gamma_p_mq(ip) +
                           ceff(ia) *
-                              Kokkos::conj(deltarho_p_q(p_map(n, ikhi, nu2)));
+                              Kokkos::conj(s_deltarho_p_q(p_map(n, ikhi, nu2)));
                     }
                   }
                 }
@@ -387,12 +383,11 @@ class Convolution {
 
           // prevent underflow in gamma_p_q/mq * R if gamma_p is very low
           Kokkos::parallel_for(
-              Kokkos::TeamVectorRange<member_type>(team_member, np),
-              [&](const int ip) {
+              Kokkos::TeamVectorRange(team_member, np), [&](const int ip) {
                 s_gamma_p_q(ip) =
-                    MDFT::Impl::prevent_underflow(s_gamma_p_q(ip));
+                    MDFT::Impl::prevent_underflow(s_gamma_p_q(ip), epsilon);
                 s_gamma_p_mq(ip) =
-                    MDFT::Impl::prevent_underflow(s_gamma_p_mq(ip));
+                    MDFT::Impl::prevent_underflow(s_gamma_p_mq(ip), epsilon);
               });
 
           bool is_singular_mid_k =
@@ -400,8 +395,7 @@ class Convolution {
               (ix == nx / 2 + 1 && iy == ny / 2 + 1 && iz == nz / 2 + 1);
 
           Kokkos::parallel_for(
-              Kokkos::TeamThreadRange<member_type>(team_member, np),
-              [&](const int ip) {
+              Kokkos::TeamThreadRange(team_member, np), [&](const int ip) {
                 auto im   = p_to_m(ip);
                 auto imup = p_to_mup(ip);
                 auto imu2 = p_to_mu(ip);

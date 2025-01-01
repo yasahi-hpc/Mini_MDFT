@@ -244,10 +244,10 @@ class OrientationProjectionTransform {
  public:
   // \brief
   // \tparam OView Orientation view, needs to be a rank 4 Real View
-  // \tparam PView Projection view, needs to be a rank 2 Complex View
+  // \tparam PView Projection view, needs to be a rank 4 Complex View
   //
   // \param o [in] Orientation (nx * ny * nz, theta, phi, psi)
-  // \param p [out] Projection (np, nx * ny * nz)
+  // \param p [out] Projection (np, nx, ny, nz)
   // [R.K] mu2 -> psi, mup -> phi
   template <KokkosView OView, KokkosView PView>
     requires KokkosViewAccesible<ExecutionSpace, OView> &&
@@ -293,7 +293,9 @@ class OrientationProjectionTransform {
     auto wigner_small_d = m_map.wigner_small_d();
     int np              = p_to_m.extent(0);
 
-    using value_type = typename PView::non_const_value_type;
+    using value_type  = typename PView::non_const_value_type;
+    using PView2DType = Kokkos::View<value_type**, ExecutionSpace>;
+    PView2DType p2d(p.data(), p.extent(0), N);
     Kokkos::parallel_for(
         "to_projection", team_policy,
         KOKKOS_LAMBDA(const member_type& team_member) {
@@ -301,7 +303,7 @@ class OrientationProjectionTransform {
 
           auto sub_o_hat = Kokkos::subview(o_hat_tmp, idx, Kokkos::ALL,
                                            Kokkos::ALL, Kokkos::ALL);
-          auto sub_p     = Kokkos::subview(p, Kokkos::ALL, idx);
+          auto sub_p     = Kokkos::subview(p2d, Kokkos::ALL, idx);
 
           // s_f, Shape (ntheta, mmax*2 + 1, mmax/mrso)
           ScratchViewType s_f(team_member.team_scratch(level), ntheta, mmax2_p1,
@@ -356,10 +358,10 @@ class OrientationProjectionTransform {
   }
 
   // \brief
-  // \tparam PView Projection view, needs to be a rank 2 Complex View
+  // \tparam PView Projection view, needs to be a rank 4 Complex View
   // \tparam OView Orientation view, needs to be a rank 4 Real View
   //
-  // \param p [in] Projection (np, nx * ny * nz)
+  // \param p [in] Projection (np, nx, ny, nz)
   // \param o [out] Orientation (nx * ny * nz, theta, phi, psi)
   template <KokkosView PView, KokkosView OView>
     requires KokkosViewAccesible<ExecutionSpace, PView> &&
@@ -392,12 +394,14 @@ class OrientationProjectionTransform {
         Kokkos::TeamPolicy<>(N, Kokkos::AUTO, Kokkos::AUTO)
             .set_scratch_size(level, Kokkos::PerTeam(scratch_size));
 
-    using value_type = typename PView::non_const_value_type;
+    using value_type  = typename PView::non_const_value_type;
+    using PView2DType = Kokkos::View<value_type**, ExecutionSpace>;
+    PView2DType p2d(p.data(), p.extent(0), N);
     Kokkos::parallel_for(
         "to_angle", team_policy, KOKKOS_LAMBDA(const member_type& team_member) {
           const auto idx = team_member.league_rank();
 
-          auto sub_p     = Kokkos::subview(p, Kokkos::ALL, idx);
+          auto sub_p     = Kokkos::subview(p2d, Kokkos::ALL, idx);
           auto sub_o_hat = Kokkos::subview(o_hat_tmp, idx, Kokkos::ALL,
                                            Kokkos::ALL, Kokkos::ALL);
 

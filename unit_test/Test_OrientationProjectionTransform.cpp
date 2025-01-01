@@ -70,7 +70,7 @@ void test_orientation_projection_identity(int n) {
       grid, angular_grid, map);
 
   using OViewType = Kokkos::View<T****, execution_space>;
-  using PViewType = Kokkos::View<Kokkos::complex<T>**, execution_space>;
+  using PViewType = Kokkos::View<Kokkos::complex<T>****, execution_space>;
 
   auto [nx, ny, nz] = grid.m_n_nodes;
   auto ntheta = angular_grid.m_ntheta, nphi = angular_grid.m_nphi,
@@ -80,7 +80,7 @@ void test_orientation_projection_identity(int n) {
   OViewType o("o", nx * ny * nz, ntheta, nphi, npsi),
       o_inv("o_inv", nx * ny * nz, ntheta, nphi, npsi),
       o_ref("o_ref", nx * ny * nz, ntheta, nphi, npsi);
-  PViewType p("p", np, nx * ny * nz);
+  PViewType p("p", np, nx, ny, nz);
 
   // Initialize o with random values
   Kokkos::Random_XorShift64_Pool<> random_pool(/*seed=*/12345);

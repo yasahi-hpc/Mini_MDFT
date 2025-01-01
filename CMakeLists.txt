@@ -23,3 +23,4 @@ if(Mini_MDFT_ENABLE_TESTS)
 endif()
 
 add_subdirectory(common)
+add_subdirectory(src)
