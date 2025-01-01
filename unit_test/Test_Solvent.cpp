@@ -71,13 +71,16 @@ void test_solvent_init(int n, std::string setting_filename,
                                              Kokkos::Array<T, 3>{1, 1, 1});
   int mmax = settings.m_mmax, molrotsymorder = 2;
   MDFT::AngularGrid<execution_space, T> angular_grid(mmax, molrotsymorder);
+  MDFT::Thermo<T> thermo(settings);
 
   ASSERT_NO_THROW(({
-    MDFT::Solvents<execution_space, T> solvents(grid, angular_grid, settings);
+    MDFT::Solvents<execution_space, T> solvents(grid, angular_grid, settings,
+                                                thermo);
   }));
 
   // Check values are correctly set
-  MDFT::Solvents<execution_space, T> solvents(grid, angular_grid, settings);
+  MDFT::Solvents<execution_space, T> solvents(grid, angular_grid, settings,
+                                              thermo);
   ASSERT_EQ(solvents.m_solvents.at(0).m_name, ref_solvent.m_name);
   ASSERT_EQ(solvents.m_solvents.at(0).m_molrotsymorder,
             ref_solvent.m_molrotsymorder);
@@ -164,13 +167,13 @@ void test_get_delta_rho() {
 
 template <typename T>
 void test_get_delta_f() {
-  using View3DType = Kokkos::View<T***, execution_space>;
-  using View6DType = Kokkos::View<T******, execution_space>;
-  const int n0 = 2, n1 = 2, n2 = 2, n3 = 2, n4 = 2, n5 = 2;
-  View3DType vexc("vexc", n3, n4, n5), w("w", n3, n4, n5);
-  View6DType xi("xi", n0, n1, n2, n3, n4, n5),
-      delta_f("delta_f", n0, n1, n2, n3, n4, n5),
-      delta_f_ref("delta_f_ref", n0, n1, n2, n3, n4, n5);
+  using View1DType = Kokkos::View<T*, execution_space>;
+  using View4DType = Kokkos::View<T****, execution_space>;
+  const int n0 = 2, n1 = 3, n2 = 4, n3 = 5;
+  View1DType w("w", n3);
+  View4DType xi("xi", n0, n1, n2, n3), vexc("vexc", n0, n1, n2, n3),
+      delta_f("delta_f", n0, n1, n2, n3),
+      delta_f_ref("delta_f_ref", n0, n1, n2, n3);
   T ff_ref = 0;
   T rho0 = 0.3, prefactor = 0.334;
 
@@ -189,19 +192,11 @@ void test_get_delta_f() {
     for (int i1 = 0; i1 < n1; i1++) {
       for (int i2 = 0; i2 < n2; i2++) {
         for (int i3 = 0; i3 < n3; i3++) {
-          for (int i4 = 0; i4 < n4; i4++) {
-            for (int i5 = 0; i5 < n5; i5++) {
-              h_delta_f_ref(i0, i1, i2, i3, i4, i5) =
-                  2.0 * rho0 * h_xi(i0, i1, i2, i3, i4, i5) *
-                  h_vexc(i3, i4, i5);
+          h_delta_f_ref(i0, i1, i2, i3) =
+              2.0 * rho0 * h_xi(i0, i1, i2, i3) * h_vexc(i0, i1, i2, i3);
 
-              ff_ref +=
-                  rho0 *
-                  (h_xi(i0, i1, i2, i3, i4, i5) * h_xi(i0, i1, i2, i3, i4, i5) -
-                   1.0) *
-                  prefactor * h_w(i3, i4, i5) * h_vexc(i3, i4, i5);
-            }
-          }
+          ff_ref += rho0 * (h_xi(i0, i1, i2, i3) * h_xi(i0, i1, i2, i3) - 1.0) *
+                    prefactor * h_w(i3) * h_vexc(i0, i1, i2, i3);
         }
       }
     }
