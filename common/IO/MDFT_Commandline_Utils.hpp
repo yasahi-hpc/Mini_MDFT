@@ -18,7 +18,7 @@ dict parse_args(int argc, char* argv[]) {
 
   assert(args.size() % 2 == 0);
 
-  for (auto i = 0; i < args.size(); i += 2) {
+  for (std::size_t i = 0; i < args.size(); i += 2) {
     std::string key   = Impl::trimLeft(args[i], "-");
     std::string value = args[i + 1];
     kwargs[key]       = value;

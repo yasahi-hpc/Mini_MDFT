@@ -315,7 +315,6 @@ struct Solvents {
 
   SpatialGridType m_spatial_grid;
   AngularGridType m_angular_grid;
-  ThermoType m_thermo;
 
   ScalarType m_prefactor;
 
@@ -323,6 +322,8 @@ struct Solvents {
    * @brief Settings of the MDFT simulation.
    */
   SettingsType m_settings;
+
+  ThermoType m_thermo;
 
   std::vector<SolventType> m_solvents;
 
