@@ -57,24 +57,21 @@ struct OrientationProjectionMap {
     auto h_p = Kokkos::create_mirror_view(m_p);
     auto h_m = Kokkos::create_mirror_view(m_m);
 
-    // h_mup     [0, 1, ..., m-1, m, m+1, ..., 2m-1, 2m]
-    // h_mup_neg [-m, -m+1, ... -1, 0, 1, ..., m-1, m]
-    auto h_mup     = Kokkos::create_mirror_view(m_mup);
-    auto h_mup_neg = Kokkos::create_mirror_view(m_mup);
-    auto h_mu      = Kokkos::create_mirror_view(m_mu);
+    // h_mup [-m, -m+1, ... -1, 0, 1, ..., m-1, m]
+    auto h_mup = Kokkos::create_mirror_view(m_mup);
+    auto h_mu  = Kokkos::create_mirror_view(m_mu);
 
     int ip = 0;
 
     // [TO DO] Should this be negative index?
     for (int m = 0; m <= mmax; ++m) {
       for (int mup = -m; mup <= m; ++mup) {
-        for (int mu = 0; mu <= m / mrso; ++mu) {
+        for (int mu = 0; mu <= m; mu += mrso) {
           MDFT::Impl::Throw_If(ip >= np, "ip must be smaller than np");
-          h_p(m, mup + m, mu) = ip;
-          h_m(ip)             = m;
-          h_mup(ip)           = mup + m;
-          h_mup_neg(ip)       = mu;
-          h_mu(ip)            = mu;
+          h_p(m, mup + m, mu / mrso) = ip;
+          h_m(ip)                    = m;
+          h_mup(ip)                  = mup;
+          h_mu(ip)                   = mu;  // c'est le vrai mu, pas mu2
           ip++;
         }
       }
@@ -95,7 +92,7 @@ struct OrientationProjectionMap {
         "maximum", Kokkos::RangePolicy<host_space>(0, np),
         KOKKOS_LAMBDA(const int ip, int& lmax_m, int& lmax_mup, int& lmax_mu) {
           lmax_m   = Kokkos::max(lmax_m, Kokkos::abs(h_m(ip)));
-          lmax_mup = Kokkos::max(lmax_mup, Kokkos::abs(h_mup_neg(ip)));
+          lmax_mup = Kokkos::max(lmax_mup, Kokkos::abs(h_mup(ip)));
           lmax_mu  = Kokkos::max(lmax_mu, Kokkos::abs(h_mu(ip)));
         },
         max_type(amax_m), max_type(amax_mup), max_type(amax_mu));
@@ -129,7 +126,7 @@ struct OrientationProjectionMap {
     // plutot que m,mup,mu a ce moment
     for (int p = 0; p < np; p++) {
       auto m   = h_m(p);
-      auto mup = h_mup_neg(p);
+      auto mup = h_mup(p);
       auto mu  = h_mu(p);
       for (int itheta = 0; itheta < ntheta; itheta++) {
         // Pour chaque theta, calcule la fonction de Wigner-d correspondant à

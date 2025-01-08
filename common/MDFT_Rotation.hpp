@@ -65,10 +65,10 @@ struct RotationCoeffs {
         }
         int m1 = l;
         h_c(l - 2, m + m_mmax_max) =
-            sqrt2 * sqrtof.at(l + m) * sqrtof.at(l - m + 1) /
+            sqrt2 * sqrtof.at(l + m + 1) * sqrtof.at(l - m + 1) /
             (sqrtof.at(l + m1 + 1) * sqrtof.at(l + m1));
         h_d(l - 2, m + m_mmax_max) =
-            sqrtof.at(l + m) * sqrtof.at(l + m) /
+            sqrtof.at(l + m + 1) * sqrtof.at(l + m) /
             (sqrtof.at(l + m1 + 1) * sqrtof.at(l + m1));
       }
     }
