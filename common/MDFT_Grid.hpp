@@ -67,9 +67,35 @@ struct SpatialGrid {
     m_dv = std::accumulate(Kokkos::begin(m_dl), Kokkos::end(m_dl), 1.0,
                            std::multiplies<ScalarType>());
 
-    m_kx = KokkosFFT::fftfreq(ExecutionSpace(), m_nx, m_dl[0]);
-    m_ky = KokkosFFT::fftfreq(ExecutionSpace(), m_ny, m_dl[1]);
-    m_kz = KokkosFFT::fftfreq(ExecutionSpace(), m_nz, m_dl[2]);
+    m_kx = View1DType("kx", m_nx);
+    m_ky = View1DType("ky", m_ny);
+    m_kz = View1DType("kz", m_nz);
+
+    ScalarType dkx = 2.0 * M_PI / m_lx;
+    ScalarType dky = 2.0 * M_PI / m_ly;
+    ScalarType dkz = 2.0 * M_PI / m_lz;
+
+    kproj(m_kx, dkx);
+    kproj(m_ky, dky);
+    kproj(m_kz, dkz);
+  }
+
+  void kproj(View1DType& k, ScalarType d) {
+    auto h_k = Kokkos::create_mirror_view(k);
+
+    int n  = k.size();
+    int N1 = n / 2 + 1;
+    int N2 = (n - 1) / 2;
+
+    for (int i = 0; i < N1; i++) {
+      h_k(i) = static_cast<ScalarType>(i) * d;
+    }
+
+    for (int i = 0; i < N2; i++) {
+      h_k(i + N1) = static_cast<ScalarType>(i - N2) * d;
+    }
+
+    Kokkos::deep_copy(k, h_k);
   }
 };
 
@@ -108,8 +134,8 @@ struct AngularGrid {
 
     // Number of orientations in the Euler representation
     m_no   = m_ntheta * m_nphi * m_npsi;
-    m_dphi = M_PI / static_cast<ScalarType>(m_nphi);
-    m_dpsi = M_PI / static_cast<ScalarType>(m_molrotsymorder) /
+    m_dphi = 2.0 * M_PI / static_cast<ScalarType>(m_nphi);
+    m_dpsi = 2.0 * M_PI / static_cast<ScalarType>(m_molrotsymorder) /
              static_cast<ScalarType>(m_npsi);
     m_np = 0;
 
@@ -191,6 +217,7 @@ struct AngularGrid {
     auto quadrature_norm = m_quadrature_norm;
     auto npsi            = m_npsi;
     auto nphi            = m_nphi;
+
     Kokkos::parallel_for(
         "init_angles", range, KOKKOS_LAMBDA(int ipsi, int iphi, int itheta) {
           int io                   = ipsi + iphi * npsi + itheta * npsi * nphi;
