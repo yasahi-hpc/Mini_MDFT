@@ -86,7 +86,9 @@ ScalarType wigner_small_d(int m, int mu, int mup, ScalarType theta) {
     for (int l = mu0 + 1; l <= m; ++l) {
       ScalarType pm2 = pm1;
       pm1            = pm;
-      pm = (cc * (2 * l - 1) * pm1 - (l + mu0 - 1) * pm2) / (l - mu0);
+      pm             = (cc * static_cast<ScalarType>(2 * l - 1) * pm1 -
+            static_cast<ScalarType>(l + mu0 - 1) * pm2) /
+           static_cast<ScalarType>(l - mu0);
     }
 
     MDFT::Impl::Throw_If((m - mu0 < 0 || m + mu0 < 0 || 2 * mu0 < 0 || mu0 < 0),

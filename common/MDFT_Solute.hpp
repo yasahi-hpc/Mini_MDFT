@@ -122,7 +122,7 @@ struct Solute {
   void read_solute(std::string filename,
                    ScalarType solute_charges_scale_factor) {
     MDFT::Impl::Throw_If(!IO::Impl::is_file_exists(filename),
-                         "File: " + filename + "does not exist.");
+                         "File: " + filename + " does not exist.");
     std::ifstream f(filename);
     json json_data = json::parse(f);
 
