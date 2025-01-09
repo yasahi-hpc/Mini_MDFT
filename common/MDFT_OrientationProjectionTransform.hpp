@@ -34,6 +34,9 @@ struct OrientationProjectionMap {
   //! mu for projection 1 to np. mu corresponds to psi
   IntView1DType m_mu;
 
+  //! mu2 for projection 1 to np. mu2 corresponds to psi
+  IntView1DType m_mu2;
+
   //! tabulation des harmoniques sphériques r(m,mup,mu,theta) en un tableau
   //! r(itheta,p)
   View2DType m_wigner_small_d;
@@ -53,6 +56,7 @@ struct OrientationProjectionMap {
     m_m   = IntView1DType("m", np);
     m_mup = IntView1DType("mup", np);
     m_mu  = IntView1DType("mu", np);
+    m_mu2 = IntView1DType("mu2", np);
 
     auto h_p = Kokkos::create_mirror_view(m_p);
     auto h_m = Kokkos::create_mirror_view(m_m);
@@ -60,6 +64,7 @@ struct OrientationProjectionMap {
     // h_mup [-m, -m+1, ... -1, 0, 1, ..., m-1, m]
     auto h_mup = Kokkos::create_mirror_view(m_mup);
     auto h_mu  = Kokkos::create_mirror_view(m_mu);
+    auto h_mu2 = Kokkos::create_mirror_view(m_mu2);
 
     int ip = 0;
 
@@ -68,10 +73,11 @@ struct OrientationProjectionMap {
       for (int mup = -m; mup <= m; ++mup) {
         for (int mu = 0; mu <= m; mu += mrso) {
           MDFT::Impl::Throw_If(ip >= np, "ip must be smaller than np");
-          h_p(m, mup + m, mu / mrso) = ip;
-          h_m(ip)                    = m;
-          h_mup(ip)                  = mup;
-          h_mu(ip)                   = mu;  // c'est le vrai mu, pas mu2
+          h_p(m, mup + mmax, mu / mrso) = ip;
+          h_m(ip)                       = m;
+          h_mup(ip)                     = mup;
+          h_mu(ip)                      = mu;  // c'est le vrai mu, pas mu2
+          h_mu2(ip)                     = mu / mrso;
           ip++;
         }
       }
@@ -82,6 +88,7 @@ struct OrientationProjectionMap {
     Kokkos::deep_copy(m_m, h_m);
     Kokkos::deep_copy(m_mup, h_mup);
     Kokkos::deep_copy(m_mu, h_mu);
+    Kokkos::deep_copy(m_mu2, h_mu2);
 
     // Initialization made on host
     using host_space = Kokkos::DefaultHostExecutionSpace;
@@ -144,6 +151,7 @@ struct OrientationProjectionMap {
   IntView1DType m() const { return m_m; }
   IntView1DType mup() const { return m_mup; }
   IntView1DType mu() const { return m_mu; }
+  IntView1DType mu2() const { return m_mu2; }
 };
 
 // \brief Class to handle the orientation projection transform
@@ -193,6 +201,8 @@ class OrientationProjectionTransform {
   //! Complex buffer for the rfft2 and irfft2 (nx * ny * nz, ntheta, nphi, npsi)
   ComplexView4DType m_o_hat;
 
+  int m_mrso;
+
  public:
   OrientationProjectionTransform()  = delete;
   ~OrientationProjectionTransform() = default;
@@ -205,6 +215,7 @@ class OrientationProjectionTransform {
     auto nphi   = angular_grid.m_nphi;
     auto npsi   = angular_grid.m_npsi;
     auto m_max  = angular_grid.m_mmax;
+    m_mrso      = angular_grid.m_molrotsymorder;
 
     // Allocate Views
     m_wtheta = View1DType("wtheta", ntheta);
@@ -263,14 +274,12 @@ class OrientationProjectionTransform {
 
     auto p_map    = m_map.p();
     int mmax_p1   = p_map.extent(0);
-    int mmax2_p1  = p_map.extent(1);
-    int mmax_mrso = p_map.extent(2);
+    int mmax2_p1  = p_map.extent(1);  // mmax * 2 + 1
+    int mmax_mrso = p_map.extent(2);  // mmax / mrso + 1
     int mmax      = mmax_p1 - 1;
     using member_type =
         typename Kokkos::TeamPolicy<ExecutionSpace>::member_type;
 
-    // std::size_t request_size = static_cast<std::size_t>(ntheta) * mmax2_p1 *
-    // mmax_mrso;
     int scratch_size = ScratchViewType::shmem_size(ntheta, mmax2_p1, mmax_mrso);
     int level        = 1;  // using global memory
     auto team_policy =
@@ -284,7 +293,7 @@ class OrientationProjectionTransform {
     auto fm        = m_fm;
     auto p_to_m    = m_map.m();
     auto p_to_mup  = m_map.mup();
-    auto p_to_mu   = m_map.mu();
+    auto p_to_mu2  = m_map.mu2();
 
     auto wtheta         = m_wtheta;
     auto wigner_small_d = m_map.wigner_small_d();
@@ -310,23 +319,27 @@ class OrientationProjectionTransform {
           Kokkos::parallel_for(
               Kokkos::ThreadVectorMDRange<Kokkos::Rank<3>, member_type>(
                   team_member, ntheta, mmax_p1, mmax_mrso),
-              [&](const int itheta, const int iphi, const int ipsi) {
-                int iphi_shift = iphi + mmax;
-                int iphi_neg   = iphi - 1;
+              [&](const int itheta, const int imup, const int imu2) {
+                int imup_shift   = imup + mmax;
+                int imup_shiftp1 = imup + mmax_p1;
+                int imup_neg     = imup;
 
                 // Used for the update of negative part
                 // src: mmax -> dst: mmax * 2, which is also updated by the
                 // positive part
-                if (iphi == 0) iphi_neg = mmax * 2;
+                if (imup == mmax) {
+                  imup_neg     = mmax - 1;
+                  imup_shiftp1 = mmax * 2;
+                }
 
                 // [0, 1, 2, ...] -> [mmax, mmax+1, mmax+2, ...]
-                s_f(itheta, iphi_shift, ipsi) =
-                    Kokkos::conj(sub_o_hat(itheta, iphi, ipsi)) /
+                s_f(itheta, imup_shift, imu2) =
+                    Kokkos::conj(sub_o_hat(itheta, imup, imu2)) /
                     static_cast<value_type>(nphi * npsi);
 
                 // [mmax, mmax+1, ...]-> [-mmax, -mmax+1, -mmax+2, ...]
-                s_f(itheta, iphi_neg, ipsi) =
-                    Kokkos::conj(sub_o_hat(itheta, iphi_shift, ipsi)) /
+                s_f(itheta, imup_neg, imu2) =
+                    Kokkos::conj(sub_o_hat(itheta, imup_shiftp1, imu2)) /
                     static_cast<value_type>(nphi * npsi);
               });
 
@@ -334,13 +347,14 @@ class OrientationProjectionTransform {
 
           Kokkos::parallel_for(
               Kokkos::TeamThreadRange(team_member, np), [&](const int ip) {
-                auto m_idx   = p_to_m(ip);
-                auto mup_idx = p_to_mup(ip);
-                auto mu_idx  = p_to_mu(ip);
-                auto sub_f = Kokkos::subview(s_f, Kokkos::ALL, mup_idx, mu_idx);
+                auto im   = p_to_m(ip);
+                auto imup = p_to_mup(ip);
+                auto imu2 = p_to_mu2(ip);
+                auto sub_f =
+                    Kokkos::subview(s_f, Kokkos::ALL, imup + mmax, imu2);
                 auto sub_wigner_small_d =
                     Kokkos::subview(wigner_small_d, Kokkos::ALL, ip);
-                auto tmp_fm    = fm(m_idx);
+                auto tmp_fm    = fm(im);
                 value_type sum = 0;
                 Kokkos::parallel_reduce(
                     Kokkos::ThreadVectorRange(team_member, ntheta),
@@ -366,7 +380,6 @@ class OrientationProjectionTransform {
   void proj2angl(const PView& p, const OView& o) {
     int N = o.extent(0), ntheta = o.extent(1);
 
-    // Need to represent p
     auto fm             = m_fm;
     auto p_to_m         = m_map.m();
     auto p_map          = m_map.p();
@@ -375,7 +388,7 @@ class OrientationProjectionTransform {
 
     auto o_hat_tmp = m_o_hat;
 
-    int mrso      = 0;
+    int mrso      = m_mrso;
     int mmax_p1   = p_map.extent(0);
     int mmax2_p1  = p_map.extent(1);
     int mmax_mrso = p_map.extent(2);
@@ -383,8 +396,6 @@ class OrientationProjectionTransform {
     using member_type =
         typename Kokkos::TeamPolicy<ExecutionSpace>::member_type;
 
-    // std::size_t request_size = static_cast<std::size_t>(ntheta) * mmax2_p1 *
-    // mmax_mrso;
     int scratch_size = ScratchViewType::shmem_size(ntheta, mmax2_p1, mmax_mrso);
     int level        = 1;  // using global memory
     auto team_policy =
@@ -412,8 +423,8 @@ class OrientationProjectionTransform {
                   team_member, ntheta, mmax2_p1, mmax_mrso),
               [&](const int itheta, const int imup, const int imu2) {
                 value_type sum = 0;
-                int m_init =
-                    Kokkos::max(Kokkos::abs(imup), mrso * Kokkos::abs(imu2));
+                int m_init     = Kokkos::max(Kokkos::abs(imup - mmax),
+                                             mrso * Kokkos::abs(imu2));
                 for (int im = m_init; im < mmax_p1; ++im) {
                   auto ip = p_map(im, imup, imu2);
                   sum += sub_p(ip) * wigner_small_d(itheta, ip) * fm(im);
@@ -428,21 +439,25 @@ class OrientationProjectionTransform {
           Kokkos::parallel_for(
               Kokkos::ThreadVectorMDRange<Kokkos::Rank<3>, member_type>(
                   team_member, ntheta, mmax_p1, mmax_mrso),
-              [&](const int itheta, const int iphi, const int ipsi) {
-                int iphi_shift = iphi + mmax;
-                int iphi_neg   = iphi - 1;
+              [&](const int itheta, const int imup, const int imu2) {
+                int imup_shift   = imup + mmax;
+                int imup_shiftp1 = imup + mmax_p1;
+                int imup_neg     = imup;
 
                 // Used for the update of negative part
                 // src: mmax -> dst: mmax * 2, which is also updated by the
                 // positive part
-                if (iphi == 0) iphi_neg = mmax * 2;
+                if (imup == mmax) {
+                  imup_neg     = mmax - 1;
+                  imup_shiftp1 = mmax * 2;
+                }
 
                 // [mmax, mmax+1, mmax+2, ...] -> [0, 1, 2, ...]
-                sub_o_hat(itheta, iphi, ipsi) = s_f(itheta, iphi_shift, ipsi);
+                sub_o_hat(itheta, imup, imu2) = s_f(itheta, imup_shift, imu2);
 
                 // [-mmax, -mmax+1, -mmax+2, ...] -> [mmax, mmax+1, mmax+2, ...]
-                sub_o_hat(itheta, iphi_shift, ipsi) =
-                    s_f(itheta, iphi_neg, ipsi);
+                sub_o_hat(itheta, imup_shiftp1, imu2) =
+                    s_f(itheta, imup_neg, imu2);
               });
         });
 
