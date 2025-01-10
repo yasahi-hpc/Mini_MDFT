@@ -8,6 +8,25 @@
 
 namespace {
 
+template <typename ViewType>
+void display(const ViewType& a) {
+  auto label   = a.label();
+  const auto n = a.size();
+
+  auto h_a = Kokkos::create_mirror_view(a);
+  Kokkos::deep_copy(h_a, a);
+  auto* data = h_a.data();
+
+  std::cout << std::scientific << std::setprecision(16) << std::flush;
+  using value_type = ViewType::non_const_value_type;
+  value_type sum   = 0;
+  for (std::size_t i = 0; i < n; i++) {
+    sum += data[i];
+  }
+  std::cout << label + ", sum: " << sum << std::endl;
+  std::cout << std::resetiosflags(std::ios_base::floatfield);
+}
+
 using execution_space      = Kokkos::DefaultExecutionSpace;
 using host_execution_space = Kokkos::DefaultHostExecutionSpace;
 using float_types          = ::testing::Types<float, double>;
@@ -102,7 +121,7 @@ void test_orientation_projection_forward(int n) {
   int mmax2_p1  = p_map.extent(1);
   int mmax_mrso = p_map.extent(2);
 
-  auto wtheta         = angular_grid.m_thetaofntheta;
+  auto wtheta         = angular_grid.m_wthetaofntheta;
   auto wigner_small_d = map.wigner_small_d();
 
   HostView1DType fm("fm", mmax_p1);
@@ -317,15 +336,15 @@ void test_orientation_projection_identity(int n) {
   // Initialize o with random values
   Kokkos::Random_XorShift64_Pool<> random_pool(/*seed=*/12345);
   Kokkos::fill_random(o, random_pool, 1.0);
-
+  Kokkos::deep_copy(o, 1.0);
   Kokkos::deep_copy(o_ref, o);
 
   opt.angl2proj(o, p);
   opt.proj2angl(p, o_inv);
 
-  // FIXME Does not work for now, probably something is wrong
-  // T epsilon = std::numeric_limits<T>::epsilon() * 100;
-  // EXPECT_TRUE(allclose(execution_space(), o_inv, o_ref, epsilon));
+  // FIXME This test does not pass, with the random numbers
+  T epsilon = std::numeric_limits<T>::epsilon() * 100;
+  EXPECT_TRUE(allclose(execution_space(), o_inv, o_ref, epsilon));
 }
 
 TYPED_TEST(TestOrientationProjectionMap, Initialization) {

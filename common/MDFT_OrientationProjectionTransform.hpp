@@ -222,7 +222,7 @@ class OrientationProjectionTransform {
     m_fm     = View1DType("fm", m_max + 1);
 
     // Initialization
-    Kokkos::deep_copy(m_wtheta, angular_grid.m_thetaofntheta);
+    Kokkos::deep_copy(m_wtheta, angular_grid.m_wthetaofntheta);
     auto h_fm = Kokkos::create_mirror_view(m_fm);
     for (int m = 0; m <= m_max; ++m) {
       h_fm(m) = std::sqrt(2.0 * static_cast<ScalarType>(m) + 1.0);
