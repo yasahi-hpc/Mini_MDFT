@@ -72,6 +72,8 @@ class Solver {
     std::string input_file = MDFT::IO::get_arg(kwargs, "filename", "dft2.json");
     std::string solute_filename =
         MDFT::IO::get_arg(kwargs, "solute", "solute.json");
+    std::string luc_filename =
+        MDFT::IO::get_arg(kwargs, "luc_file", "tip3p-ck_nonzero_nmax3_ml");
 
     m_settings = std::make_unique<SettingsType>(input_file);
 
@@ -97,8 +99,10 @@ class Solver {
         *m_spatial_grid, *m_angular_grid, *m_op_map);
 
     // Initialize convolution
-    m_conv = std::make_unique<ConvolutionType>(*m_spatial_grid, *m_angular_grid,
-                                               *m_op_map);
+    auto solvent = m_solvents->m_solvents.at(0);
+    int np_luc   = solvent.m_npluc[m_settings->m_mmax];
+    m_conv       = std::make_unique<ConvolutionType>(
+        luc_filename, *m_spatial_grid, *m_angular_grid, *m_op_map, np_luc);
   }
   void run() {
     energy_cproj_mrso(m_energy.m_exc_cproj, m_df);
