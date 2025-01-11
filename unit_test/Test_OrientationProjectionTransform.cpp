@@ -8,25 +8,6 @@
 
 namespace {
 
-template <typename ViewType>
-void display(const ViewType& a) {
-  auto label   = a.label();
-  const auto n = a.size();
-
-  auto h_a = Kokkos::create_mirror_view(a);
-  Kokkos::deep_copy(h_a, a);
-  auto* data = h_a.data();
-
-  std::cout << std::scientific << std::setprecision(16) << std::flush;
-  using value_type = ViewType::non_const_value_type;
-  value_type sum   = 0;
-  for (std::size_t i = 0; i < n; i++) {
-    sum += data[i];
-  }
-  std::cout << label + ", sum: " << sum << std::endl;
-  std::cout << std::resetiosflags(std::ios_base::floatfield);
-}
-
 using execution_space      = Kokkos::DefaultExecutionSpace;
 using host_execution_space = Kokkos::DefaultHostExecutionSpace;
 using float_types          = ::testing::Types<float, double>;
