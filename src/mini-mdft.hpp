@@ -75,10 +75,23 @@ class Solver {
     std::string luc_filename =
         MDFT::IO::get_arg(kwargs, "luc_file", "tip3p-ck_nonzero_nmax3_ml");
 
+    // Initialize settings
     m_settings = std::make_unique<SettingsType>(input_file);
 
     // Initialize grids
     init_grid(*m_settings, m_spatial_grid, m_angular_grid);
+
+    // Allocate views
+    auto nx     = m_spatial_grid->m_nx;
+    auto ny     = m_spatial_grid->m_ny;
+    auto nz     = m_spatial_grid->m_nz;
+    auto ntheta = m_angular_grid->m_ntheta;
+    auto nphi   = m_angular_grid->m_nphi;
+    auto npsi   = m_angular_grid->m_npsi;
+    auto np     = m_angular_grid->m_np;
+
+    m_delta_rho   = View4DType("delta_rho", nx * ny * nz, ntheta, nphi, npsi);
+    m_delta_rho_p = ComplexView4DType("delta_rho_p", np, nx, ny, nz);
 
     // Initialize solute
     m_solute = std::make_unique<SoluteType>(*m_spatial_grid, *m_settings,

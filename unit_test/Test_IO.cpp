@@ -130,9 +130,9 @@ TYPED_TEST(TestLucData, readLuc) {
   ASSERT_EQ(h_m(h_m.size() - 1), 0);
   ASSERT_EQ(h_n(0), 3);
   ASSERT_EQ(h_n(h_n.size() - 1), 0);
-  ASSERT_EQ(h_mu(0), 3);
+  ASSERT_EQ(h_mu(0), 2);
   ASSERT_EQ(h_mu(h_mu.size() - 1), 0);
-  ASSERT_EQ(h_nu(0), 3);
+  ASSERT_EQ(h_nu(0), 2);
   ASSERT_EQ(h_nu(h_nu.size() - 1), 0);
   ASSERT_EQ(h_khi(0), 3);
   ASSERT_EQ(h_khi(h_khi.size() - 1), 0);

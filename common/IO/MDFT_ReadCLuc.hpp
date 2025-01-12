@@ -45,6 +45,7 @@ struct LucData {
     std::size_t mmax_p1  = static_cast<std::size_t>(mmax + 1);
     std::size_t mmax2_p1 = static_cast<std::size_t>(2 * mmax + 1);
     std::size_t mmax_pm  = static_cast<std::size_t>(2 * mmax / mrso + 1);
+    int mmax_mrso        = mmax / mrso;
 
     m_m   = IntView1DType("m", np);
     m_n   = IntView1DType("n", np);
@@ -83,8 +84,8 @@ struct LucData {
     for (int ip = 0; ip < np; ip++) {
       int im    = m_vec.at(ip);
       int in    = n_vec.at(ip);
-      int imu   = m_vec.at(ip);
-      int inu   = n_vec.at(ip);
+      int imu   = mu_vec.at(ip);
+      int inu   = nu_vec.at(ip);
       int ikhi  = khi_vec.at(ip);
       h_m(ip)   = im;
       h_n(ip)   = in;
@@ -93,7 +94,9 @@ struct LucData {
       h_khi(ip) = ikhi;
       // but p(:,:,:,:,:) uses mu/mrso and nu/mrso, we often call them mu2 and
       // nu2
-      h_p(im, in, imu / mrso, inu / mrso, ikhi) = ip;
+      // h_p(im, in, imu / mrso, inu / mrso, ikhi) = ip;
+      h_p(im, in, imu / mrso + mmax_mrso, inu / mrso + mmax_mrso, ikhi + mmax) =
+          ip;
 
       for (int iq = 0; iq < nq; iq++) {
         using complex_value_type = ComplexView2DType::non_const_value_type;
