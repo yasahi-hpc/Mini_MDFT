@@ -107,6 +107,7 @@ rotation_matrix_between_complex_spherical_harmonics_lu(
   using float_type   = KokkosFFT::Impl::base_floating_point_type<complex_type>;
   using RotArrayType = Kokkos::Array<float_type, 3>;
   const int mmax     = R.extent(0) - 1;
+  const int mmax_max = a.extent(0) + 1;
 
   if (mmax == 0) {
     for (std::size_t i = 0; i < R.size(); ++i) {
@@ -139,9 +140,8 @@ rotation_matrix_between_complex_spherical_harmonics_lu(
   }
 
   // Normalize
+  // to avoid round up error if rmat2 is so closed to z.
   rmat2 = L2normalize(rmat2);
-
-  // to avoid round up error if rmat2 is so close to z
   rmat1 = L2normalize(rmat1);
   rmat0 = cross_product(rmat1, rmat2);
 
@@ -176,7 +176,7 @@ rotation_matrix_between_complex_spherical_harmonics_lu(
       int m1min = m > 0 ? 1 : 0;
       for (int m1 = m1min; m1 <= l - 1; ++m1) {
         if (m == -l) {
-          auto b_tmp  = b(l - 2, mmax - m, mmax + m1);
+          auto b_tmp  = b(l - 2, mmax_max - m, mmax_max + m1);
           auto R0_tmp = R(1, mmax - 1, mmax);
           auto R1_tmp = R(l1, mmax + m + 1, mmax + m1);
 
@@ -186,7 +186,7 @@ rotation_matrix_between_complex_spherical_harmonics_lu(
                             R0_tmp.imag() * R1_tmp.real());
           R(l, mmax + m, mmax + m1) = complex_type(f, g);
         } else if (m == l) {
-          auto b_tmp  = b(l - 2, mmax + m, mmax + m1);
+          auto b_tmp  = b(l - 2, mmax_max + m, mmax_max + m1);
           auto R0_tmp = R(1, mmax + 1, mmax);
           auto R1_tmp = R(l1, mmax + m - 1, mmax + m1);
 
@@ -196,15 +196,15 @@ rotation_matrix_between_complex_spherical_harmonics_lu(
                             R0_tmp.imag() * R1_tmp.real());
           R(l, mmax + m, mmax + m1) = complex_type(f, g);
         } else {
-          auto a_tmp     = a(l - 2, mmax + m, mmax + m1);
-          auto b_pos_tmp = b(l - 2, mmax + m, mmax + m1);
-          auto b_neg_tmp = b(l - 2, mmax - m, mmax + m1);
+          auto a_tmp     = a(l - 2, mmax_max + m, mmax_max + m1);
+          auto b_pos_tmp = b(l - 2, mmax_max + m, mmax_max + m1);
+          auto b_neg_tmp = b(l - 2, mmax_max - m, mmax_max + m1);
           auto R0_tmp    = R(1, mmax, mmax);
           auto R1_tmp    = R(1, mmax + 1, mmax);
           auto R2_tmp    = R(1, mmax - 1, mmax);
-          auto Rm0_tmp   = R(1, mmax + m, mmax + m1);
-          auto Rm1_tmp   = R(1, mmax + m + 1, mmax + m1);
-          auto Rm2_tmp   = R(1, mmax + m - 1, mmax + m1);
+          auto Rm0_tmp   = R(l1, mmax + m, mmax + m1);
+          auto Rm1_tmp   = R(l1, mmax + m + 1, mmax + m1);
+          auto Rm2_tmp   = R(l1, mmax + m - 1, mmax + m1);
 
           auto f = a_tmp * (R0_tmp.real() * Rm0_tmp.real()) +
                    b_pos_tmp * (R1_tmp.real() * Rm2_tmp.real() -
@@ -227,7 +227,7 @@ rotation_matrix_between_complex_spherical_harmonics_lu(
       int m1 = l;
       {
         if (m == -l) {
-          auto d_tmp                = d(l - 2, mmax - m);
+          auto d_tmp                = d(l - 2, mmax_max - m);
           auto R0_tmp               = R(1, mmax - 1, mmax + 1);
           auto R1_tmp               = R(l1, mmax + m + 1, mmax + m1 - 1);
           auto f                    = d_tmp * (R0_tmp.real() * R1_tmp.real() -
@@ -236,7 +236,7 @@ rotation_matrix_between_complex_spherical_harmonics_lu(
                             R0_tmp.imag() * R1_tmp.real());
           R(l, mmax + m, mmax + m1) = complex_type(f, g);
         } else if (m == l) {
-          auto d_tmp                = d(l - 2, mmax + m);
+          auto d_tmp                = d(l - 2, mmax_max + m);
           auto R0_tmp               = R(1, mmax + 1, mmax + 1);
           auto R1_tmp               = R(l1, mmax + m - 1, mmax + m1 - 1);
           auto f                    = d_tmp * (R0_tmp.real() * R1_tmp.real() -
@@ -245,15 +245,15 @@ rotation_matrix_between_complex_spherical_harmonics_lu(
                             R0_tmp.imag() * R1_tmp.real());
           R(l, mmax + m, mmax + m1) = complex_type(f, g);
         } else {
-          auto c_tmp     = c(l - 2, mmax + m);
-          auto d_pos_tmp = d(l - 2, mmax + m);
-          auto d_neg_tmp = d(l - 2, mmax - m);
+          auto c_tmp     = c(l - 2, mmax_max + m);
+          auto d_pos_tmp = d(l - 2, mmax_max + m);
+          auto d_neg_tmp = d(l - 2, mmax_max - m);
           auto R0_tmp    = R(1, mmax, mmax + 1);
           auto R1_tmp    = R(1, mmax + 1, mmax + 1);
           auto R2_tmp    = R(1, mmax - 1, mmax + 1);
-          auto Rm0_tmp   = R(1, mmax + m, mmax + m1 - 1);
-          auto Rm1_tmp   = R(1, mmax + m + 1, mmax + m1 - 1);
-          auto Rm2_tmp   = R(1, mmax + m - 1, mmax + m1 - 1);
+          auto Rm0_tmp   = R(l1, mmax + m, mmax + m1 - 1);
+          auto Rm1_tmp   = R(l1, mmax + m + 1, mmax + m1 - 1);
+          auto Rm2_tmp   = R(l1, mmax + m - 1, mmax + m1 - 1);
 
           auto f = c_tmp * (R0_tmp.real() * Rm0_tmp.real() -
                             R0_tmp.imag() * Rm0_tmp.imag()) +

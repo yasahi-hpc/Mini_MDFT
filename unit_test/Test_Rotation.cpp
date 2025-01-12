@@ -14,7 +14,7 @@ struct TestRotation : public ::testing::Test {
   using RotArrayType = Kokkos::Array<T, 3>;
 
   const float_type kx0                 = 0.209439510239320;
-  std::vector<std::size_t> m_all_sizes = {0, 1, 2, 5};
+  std::vector<std::size_t> m_all_sizes = {0, 1, 2, 3, 4, 5};
   std::vector<RotArrayType> m_all_q    = {
       {0.0, 0.0, 0.0}, {1.0, 2.0, 3.0}, {kx0, kx0, kx0}};
 };
@@ -44,7 +44,8 @@ void test_spherical_harmonics_lu(int mmax, Kokkos::Array<T, 3> q) {
       });
 
   // Make a reference at host
-  T epsilon = std::numeric_limits<T>::epsilon() * 1e3;
+  int mmax_max = coeff.m_a.extent(0) + 1;
+  T epsilon    = std::numeric_limits<T>::epsilon() * 1e3;
   auto h_a =
       Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), coeff.m_a);
   auto h_b =
@@ -83,6 +84,7 @@ void test_spherical_harmonics_lu(int mmax, Kokkos::Array<T, 3> q) {
   }
 
   // Normalize
+  // to avoid round up error if rmat2 is so closed to z.
   rmat2 = MDFT::Impl::L2normalize(rmat2);
   rmat1 = MDFT::Impl::L2normalize(rmat1);
   rmat0 = MDFT::Impl::cross_product(rmat1, rmat2);
@@ -122,7 +124,7 @@ void test_spherical_harmonics_lu(int mmax, Kokkos::Array<T, 3> q) {
       int m1min = m > 0 ? 1 : 0;
       for (int m1 = m1min; m1 <= l - 1; ++m1) {
         if (m == -l) {
-          auto b_tmp  = h_b(l - 2, mmax - m, mmax + m1);
+          auto b_tmp  = h_b(l - 2, mmax_max - m, mmax_max + m1);
           auto R0_tmp = h_R_ref(1, mmax - 1, mmax);
           auto R1_tmp = h_R_ref(l1, mmax + m + 1, mmax + m1);
 
@@ -132,7 +134,7 @@ void test_spherical_harmonics_lu(int mmax, Kokkos::Array<T, 3> q) {
                             R0_tmp.imag() * R1_tmp.real());
           h_R_ref(l, mmax + m, mmax + m1) = complex_type(f, g);
         } else if (m == l) {
-          auto b_tmp  = h_b(l - 2, mmax + m, mmax + m1);
+          auto b_tmp  = h_b(l - 2, mmax_max + m, mmax_max + m1);
           auto R0_tmp = h_R_ref(1, mmax + 1, mmax);
           auto R1_tmp = h_R_ref(l1, mmax + m - 1, mmax + m1);
 
@@ -142,15 +144,15 @@ void test_spherical_harmonics_lu(int mmax, Kokkos::Array<T, 3> q) {
                             R0_tmp.imag() * R1_tmp.real());
           h_R_ref(l, mmax + m, mmax + m1) = complex_type(f, g);
         } else {
-          auto a_tmp     = h_a(l - 2, mmax + m, mmax + m1);
-          auto b_pos_tmp = h_b(l - 2, mmax + m, mmax + m1);
-          auto b_neg_tmp = h_b(l - 2, mmax - m, mmax + m1);
+          auto a_tmp     = h_a(l - 2, mmax_max + m, mmax_max + m1);
+          auto b_pos_tmp = h_b(l - 2, mmax_max + m, mmax_max + m1);
+          auto b_neg_tmp = h_b(l - 2, mmax_max - m, mmax_max + m1);
           auto R0_tmp    = h_R_ref(1, mmax, mmax);
           auto R1_tmp    = h_R_ref(1, mmax + 1, mmax);
           auto R2_tmp    = h_R_ref(1, mmax - 1, mmax);
-          auto Rm0_tmp   = h_R_ref(1, mmax + m, mmax + m1);
-          auto Rm1_tmp   = h_R_ref(1, mmax + m + 1, mmax + m1);
-          auto Rm2_tmp   = h_R_ref(1, mmax + m - 1, mmax + m1);
+          auto Rm0_tmp   = h_R_ref(l1, mmax + m, mmax + m1);
+          auto Rm1_tmp   = h_R_ref(l1, mmax + m + 1, mmax + m1);
+          auto Rm2_tmp   = h_R_ref(l1, mmax + m - 1, mmax + m1);
 
           auto f = a_tmp * (R0_tmp.real() * Rm0_tmp.real()) +
                    b_pos_tmp * (R1_tmp.real() * Rm2_tmp.real() -
@@ -173,7 +175,7 @@ void test_spherical_harmonics_lu(int mmax, Kokkos::Array<T, 3> q) {
       int m1 = l;
       {
         if (m == -l) {
-          auto d_tmp  = h_d(l - 2, mmax - m);
+          auto d_tmp  = h_d(l - 2, mmax_max - m);
           auto R0_tmp = h_R_ref(1, mmax - 1, mmax + 1);
           auto R1_tmp = h_R_ref(l1, mmax + m + 1, mmax + m1 - 1);
           auto f      = d_tmp * (R0_tmp.real() * R1_tmp.real() -
@@ -182,7 +184,7 @@ void test_spherical_harmonics_lu(int mmax, Kokkos::Array<T, 3> q) {
                             R0_tmp.imag() * R1_tmp.real());
           h_R_ref(l, mmax + m, mmax + m1) = complex_type(f, g);
         } else if (m == l) {
-          auto d_tmp  = h_d(l - 2, mmax + m);
+          auto d_tmp  = h_d(l - 2, mmax_max + m);
           auto R0_tmp = h_R_ref(1, mmax + 1, mmax + 1);
           auto R1_tmp = h_R_ref(l1, mmax + m - 1, mmax + m1 - 1);
           auto f      = d_tmp * (R0_tmp.real() * R1_tmp.real() -
@@ -191,15 +193,15 @@ void test_spherical_harmonics_lu(int mmax, Kokkos::Array<T, 3> q) {
                             R0_tmp.imag() * R1_tmp.real());
           h_R_ref(l, mmax + m, mmax + m1) = complex_type(f, g);
         } else {
-          auto c_tmp     = h_c(l - 2, mmax + m);
-          auto d_pos_tmp = h_d(l - 2, mmax + m);
-          auto d_neg_tmp = h_d(l - 2, mmax - m);
+          auto c_tmp     = h_c(l - 2, mmax_max + m);
+          auto d_pos_tmp = h_d(l - 2, mmax_max + m);
+          auto d_neg_tmp = h_d(l - 2, mmax_max - m);
           auto R0_tmp    = h_R_ref(1, mmax, mmax + 1);
           auto R1_tmp    = h_R_ref(1, mmax + 1, mmax + 1);
           auto R2_tmp    = h_R_ref(1, mmax - 1, mmax + 1);
-          auto Rm0_tmp   = h_R_ref(1, mmax + m, mmax + m1 - 1);
-          auto Rm1_tmp   = h_R_ref(1, mmax + m + 1, mmax + m1 - 1);
-          auto Rm2_tmp   = h_R_ref(1, mmax + m - 1, mmax + m1 - 1);
+          auto Rm0_tmp   = h_R_ref(l1, mmax + m, mmax + m1 - 1);
+          auto Rm1_tmp   = h_R_ref(l1, mmax + m + 1, mmax + m1 - 1);
+          auto Rm2_tmp   = h_R_ref(l1, mmax + m - 1, mmax + m1 - 1);
 
           auto f = c_tmp * (R0_tmp.real() * Rm0_tmp.real() -
                             R0_tmp.imag() * Rm0_tmp.imag()) +
@@ -234,8 +236,7 @@ TYPED_TEST(TestRotation, CoeffInitialization) {
 }
 
 TYPED_TEST(TestRotation, SphericalHarmonicsLU) {
-  using float_type   = typename TestFixture::float_type;
-  using RotArrayType = Kokkos::Array<float_type, 3>;
+  using float_type = typename TestFixture::float_type;
   for (auto m : this->m_all_sizes) {
     for (auto q : this->m_all_q) {
       test_spherical_harmonics_lu<float_type>(m, q);
