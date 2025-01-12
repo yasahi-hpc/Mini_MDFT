@@ -235,7 +235,6 @@ TYPED_TEST(TestRotation, CoeffInitialization) {
 
 TYPED_TEST(TestRotation, SphericalHarmonicsLU) {
   using float_type   = typename TestFixture::float_type;
-  using RotArrayType = Kokkos::Array<float_type, 3>;
   for (auto m : this->m_all_sizes) {
     for (auto q : this->m_all_q) {
       test_spherical_harmonics_lu<float_type>(m, q);

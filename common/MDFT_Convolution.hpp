@@ -467,7 +467,6 @@ class Convolution {
 
                 auto im   = p_to_m(ip);
                 auto ikhi = p_to_mup(ip);
-                auto imu2 = p_to_mu(ip);
 
                 auto ceff = s_ceff(ia);
                 if (inu2 < 0) {
