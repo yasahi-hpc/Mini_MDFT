@@ -93,7 +93,6 @@ class Convolution {
   Convolution()  = delete;
   ~Convolution() = default;
 
-  // [TO DO] We need OrientationProjectionMap for this class
   Convolution(const std::string filename, const SpatialGridType& spatial_grid,
               const AngularGridType& angular_grid,
               const OrientationProjectionMapType& map, const int np_luc)
@@ -201,7 +200,7 @@ class Convolution {
 
     // We need an inplace transform
     // Can we make empty views just with shapes?
-    ComplexView4DType delta_rho("delta_rho", np, nz, ny, nx);
+    ComplexView4DType delta_rho("delta_rho", np, nx, ny, nz);
 
     ExecutionSpace exec;
     using axes_type = KokkosFFT::axis_type<3>;
@@ -233,7 +232,6 @@ class Convolution {
 
     ArrayType k_max    = {*kx_max, *ky_max, *kz_max};
     auto qmaxnecessary = MDFT::Impl::norm2(k_max);
-    // std::cout << qmaxnecessary << std::endl;
     m_luc_data = std::make_unique<LucDataType>(filename, angular_grid, np_luc,
                                                qmaxnecessary);
 
@@ -258,15 +256,16 @@ class Convolution {
     // Allocate Views
     auto nq = m_luc_data->m_nq;
 
-    using HostIntView1D = Kokkos::View<IntType*, host_space>;
-    using HostScalarView2D =
-        Kokkos::View<Kokkos::complex<ScalarType>**, host_space>;
-
     // Initialize h_n_new, h_nu_new, h_khi_new, and h_cnu2nmu2khim_q_new
+    using HostIntView1D = Kokkos::View<IntType*, host_space>;
     HostIntView1D h_n_new("n_new", np_new);
     HostIntView1D h_nu_new("nu_new", np_new);
     HostIntView1D h_khi_new("khi_new", np_new);
-    HostScalarView2D h_cnu2nmu2khim_q_new("cnu2nmu2khim_q_new", np_new, nq);
+
+    // Allocate a member variable
+    m_mnmunukhi_q      = ComplexView2DType("mnmunukhi_q", np_new, nq);
+    auto h_mnmunukhi_q = Kokkos::create_mirror_view(m_mnmunukhi_q);
+
     auto h_mnmunukhi_q_fromfile = Kokkos::create_mirror_view_and_copy(
         Kokkos::HostSpace(), m_luc_data->m_cmnmunukhi);
     auto h_ip = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
@@ -286,7 +285,7 @@ class Convolution {
               for (int iq = 0; iq < nq; iq++) {
                 int ip = h_ip(im, in, imu2 + mmax_mrso, inu2 + mmax_mrso,
                               ikhi + m_mmax);
-                h_cnu2nmu2khim_q_new(i, iq) = h_mnmunukhi_q_fromfile(ip, iq);
+                h_mnmunukhi_q(i, iq) = h_mnmunukhi_q_fromfile(ip, iq);
               }
               i++;
             }
@@ -295,51 +294,34 @@ class Convolution {
       }
     }
 
-    // Initialize h_n, h_nu, and h_khi
-    HostIntView1D h_n("n", np_luc);
-    HostIntView1D h_nu("nu", np_luc);
-    HostIntView1D h_khi("khi", np_luc);
-
-    // m_ceff = ComplexView1DType("ceff", np_luc);
-    m_mnmunukhi_q      = ComplexView2DType("mnmunukhi_q", np_luc, nq);
-    auto h_mnmunukhi_q = Kokkos::create_mirror_view(m_mnmunukhi_q);
-
-    for (int ip = 0; ip < np_luc; ip++) {
-      h_n(ip)   = h_n_new(ip);
-      h_nu(ip)  = h_nu_new(ip);
-      h_khi(ip) = h_khi_new(ip);
-      for (int iq = 0; iq < nq; iq++) {
-        h_mnmunukhi_q(ip, iq) = h_cnu2nmu2khim_q_new(ip, iq);
-      }
-    }
-
     // Move prefactors of MOZ inside the direct correlation function so that one
     // does not need to compute, for instance,
     // (-1)**(khi+nu) inside the inner loop of MOZ
-    for (int ip = 0; ip < np_luc; ip++) {
-      auto inu = h_nu(ip);
+    for (int ip = 0; ip < np_new; ip++) {
+      auto inu = h_nu_new(ip);
       if (inu < 0) {
-        auto ikhi = h_khi(ip);
+        auto ikhi = h_khi_new(ip);
         for (int iq = 0; iq < nq; iq++) {
           h_mnmunukhi_q(ip, iq) =
               std::pow(-1.0, (ikhi + inu)) * h_mnmunukhi_q(ip, iq);
         }
       } else {
-        auto in = h_n(ip);
+        auto in = h_n_new(ip);
         for (int iq = 0; iq < nq; iq++) {
           h_mnmunukhi_q(ip, iq) = std::pow(-1.0, in) * h_mnmunukhi_q(ip, iq);
         }
       }
     }
-
     Kokkos::deep_copy(m_mnmunukhi_q, h_mnmunukhi_q);
   }
 
  public:
+  auto gamma_p_map() const { return m_gamma_p_map; }
+
   // \brief
   // \tparam View Orientation view, needs to be a Complex View
   //
-  // \param deltarho_p [in/out] Orientation (nm, nmup, nmu, nz, ny, nx)
+  // \param deltarho_p [in/out] Orientation (nm * nmup * nmu, nx, ny, nz)
   template <KokkosView View>
     requires KokkosViewAccesible<ExecutionSpace, View>
   void execute(const View& deltarho_p) {
@@ -443,9 +425,12 @@ class Convolution {
                 auto imu2        = p_to_mu(ip);
                 Kokkos::complex<ScalarType> deltarho_p_q_loc(0.0),
                     deltarho_p_mq_loc(0.0);
-                for (int imup = 0; imup < im * 2 + 1; imup++) {
-                  deltarho_p_q_loc += s_gamma_p_q(ip) * s_R(im, imup, imu2);
-                  deltarho_p_mq_loc += s_gamma_p_mq(ip) * s_R(im, imup, imu2);
+                for (int imup = -im; imup <= im; imup++) {
+                  auto ip_mapped = p_map(im, imup + mmax, imu2);
+                  deltarho_p_q_loc +=
+                      s_gamma_p_q(ip) * s_R(im, imup + mmax, ikphi + mmax);
+                  deltarho_p_mq_loc +=
+                      s_gamma_p_mq(ip) * s_R(im, imup + mmax, -ikphi + mmax);
                 }
                 s_deltarho_p_q(ip)  = deltarho_p_q_loc;
                 s_deltarho_p_mq(ip) = deltarho_p_mq_loc * Kokkos::pow(-1.0, im);
