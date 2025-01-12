@@ -109,9 +109,15 @@ rotation_matrix_between_complex_spherical_harmonics_lu(
   const int mmax     = R.extent(0) - 1;
 
   if (mmax == 0) {
-    R(0, 0, 0) = complex_type(1.0, 0.0);
+    for (std::size_t i = 0; i < R.size(); ++i) {
+      auto R_data = R.data();
+      R_data[i]   = complex_type(1.0, 0.0);
+    }
     return;
   }
+
+  // m == 0
+  R(0, mmax, mmax) = complex_type(1.0, 0.0);
 
   // Build q-frame XYZ
   // Start by aligining the new Z along q
@@ -141,18 +147,24 @@ rotation_matrix_between_complex_spherical_harmonics_lu(
 
   // m == 1
   const float_type inv_sqrt2 = 1.0 / Kokkos::sqrt(2);
-  R(1, mmax + 1, mmax + 1) =
+  R(1, mmax - 1, mmax - 1) =
       complex_type((rmat1[1] + rmat0[0]) * 0.5, (rmat0[1] - rmat1[0]) * 0.5);
-  R(1, mmax + 1, 0) = complex_type(rmat2[0] * inv_sqrt2, rmat2[1] * inv_sqrt2);
-  R(1, mmax + 1, 1) =
+  R(1, mmax - 1, mmax) =
+      complex_type(rmat2[0] * inv_sqrt2, rmat2[1] * inv_sqrt2);
+  R(1, mmax - 1, mmax + 1) =
       complex_type((rmat1[1] - rmat0[0]) * 0.5, (-rmat0[1] - rmat1[0]) * 0.5);
-  R(1, 0, mmax + 1) = complex_type(rmat0[2] * inv_sqrt2, -rmat1[2] * inv_sqrt2);
-  R(1, 0, 0)        = complex_type(rmat2[2], 0.0);
-  R(1, 0, 1) = complex_type(-rmat0[2] * inv_sqrt2, -rmat1[2] * inv_sqrt2);
-  R(1, 1, mmax + 1) =
+
+  R(1, mmax, mmax - 1) =
+      complex_type(rmat0[2] * inv_sqrt2, -rmat1[2] * inv_sqrt2);
+  R(1, mmax, mmax) = complex_type(rmat2[2], 0.0);
+  R(1, mmax, mmax + 1) =
+      complex_type(-rmat0[2] * inv_sqrt2, -rmat1[2] * inv_sqrt2);
+
+  R(1, mmax + 1, mmax - 1) =
       complex_type((rmat1[1] - rmat0[0]) * 0.5, (rmat0[1] + rmat1[0]) * 0.5);
-  R(1, 1, 0) = complex_type(-rmat2[0] * inv_sqrt2, rmat2[1] * inv_sqrt2);
-  R(1, 1, 1) =
+  R(1, mmax + 1, mmax) =
+      complex_type(-rmat2[0] * inv_sqrt2, rmat2[1] * inv_sqrt2);
+  R(1, mmax + 1, mmax + 1) =
       complex_type((rmat1[1] + rmat0[0]) * 0.5, (rmat1[0] - rmat0[1]) * 0.5);
 
   if (mmax == 1) return;
@@ -164,126 +176,102 @@ rotation_matrix_between_complex_spherical_harmonics_lu(
       int m1min = m > 0 ? 1 : 0;
       for (int m1 = m1min; m1 <= l - 1; ++m1) {
         if (m == -l) {
-          auto f = b(l - 2, mmax - m, mmax + m1) *
-                   (R(1, mmax - 1, mmax).real() *
-                        R(l1, mmax + m + 1, mmax + m1).real() -
-                    R(1, mmax - 1, mmax).imag() *
-                        R(l1, mmax + m + 1, mmax + m1).imag());
-          auto g = b(l - 2, mmax - m, mmax + m1) *
-                   (R(1, mmax - 1, mmax).real() *
-                        R(l1, mmax + m + 1, mmax + m1).imag() -
-                    R(1, mmax - 1, mmax).imag() *
-                        R(l1, mmax + m + 1, mmax + m1).real());
-          R(l, m + mmax, m1 + mmax) = complex_type(f, g);
+          auto b_tmp  = b(l - 2, mmax - m, mmax + m1);
+          auto R0_tmp = R(1, mmax - 1, mmax);
+          auto R1_tmp = R(l1, mmax + m + 1, mmax + m1);
+
+          auto f                    = b_tmp * (R0_tmp.real() * R1_tmp.real() -
+                            R0_tmp.imag() * R1_tmp.imag());
+          auto g                    = b_tmp * (R0_tmp.real() * R1_tmp.imag() +
+                            R0_tmp.imag() * R1_tmp.real());
+          R(l, mmax + m, mmax + m1) = complex_type(f, g);
         } else if (m == l) {
-          auto f = b(l - 2, mmax + m, mmax + m1) *
-                   (R(1, mmax + 1, mmax).real() *
-                        R(l1, mmax + m - 1, mmax + m1).real() -
-                    R(1, mmax + 1, mmax).imag() *
-                        R(l1, mmax + m - 1, mmax + m1).imag());
-          auto g = b(l - 2, mmax + m, mmax + m1) *
-                   (R(1, mmax + 1, mmax).real() *
-                        R(l1, mmax + m - 1, mmax + m1).imag() -
-                    R(1, mmax + 1, mmax).imag() *
-                        R(l1, mmax + m - 1, mmax + m1).real());
-          R(l, m + mmax, m1 + mmax) = complex_type(f, g);
+          auto b_tmp  = b(l - 2, mmax + m, mmax + m1);
+          auto R0_tmp = R(1, mmax + 1, mmax);
+          auto R1_tmp = R(l1, mmax + m - 1, mmax + m1);
+
+          auto f                    = b_tmp * (R0_tmp.real() * R1_tmp.real() -
+                            R0_tmp.imag() * R1_tmp.imag());
+          auto g                    = b_tmp * (R0_tmp.real() * R1_tmp.imag() +
+                            R0_tmp.imag() * R1_tmp.real());
+          R(l, mmax + m, mmax + m1) = complex_type(f, g);
         } else {
-          auto f = a(l - 2, mmax + m, mmax + m1) *
-                       (R(1, mmax, mmax).real() *
-                        R(l1, mmax + m, mmax + m1).real()) +
-                   b(l - 2, mmax + m, mmax + m1) *
-                       (R(1, mmax + 1, mmax).real() *
-                            R(l1, mmax + m - 1, mmax + m1).real() -
-                        R(1, mmax + 1, mmax).imag() *
-                            R(l1, mmax + m - 1, mmax + m1).imag()) +
-                   b(l - 2, mmax - m, mmax + m1) *
-                       (R(1, mmax - 1, mmax).real() *
-                            R(l1, mmax + m + 1, mmax + m1).real() -
-                        R(1, mmax - 1, mmax).imag() *
-                            R(l1, mmax + m + 1, mmax + m1).imag());
-          auto g = a(l - 2, mmax + m, mmax + m1) *
-                       (R(1, mmax, mmax).real() *
-                        R(l1, mmax + m, mmax + m1).imag()) +
-                   b(l - 2, mmax + m, mmax + m1) *
-                       (R(1, mmax + 1, mmax).real() *
-                            R(l1, mmax + m - 1, mmax + m1).imag() +
-                        R(1, mmax + 1, mmax).imag() *
-                            R(l1, mmax + m - 1, mmax + m1).real()) +
-                   b(l - 2, mmax - m, mmax + m1) *
-                       (R(1, mmax - 1, mmax).real() *
-                            R(l1, mmax + m + 1, mmax + m1).imag() +
-                        R(1, mmax - 1, mmax).imag() *
-                            R(l1, mmax + m + 1, mmax + m1).real());
-          R(l, m + mmax, m1 + mmax) = complex_type(f, g);
+          auto a_tmp     = a(l - 2, mmax + m, mmax + m1);
+          auto b_pos_tmp = b(l - 2, mmax + m, mmax + m1);
+          auto b_neg_tmp = b(l - 2, mmax - m, mmax + m1);
+          auto R0_tmp    = R(1, mmax, mmax);
+          auto R1_tmp    = R(1, mmax + 1, mmax);
+          auto R2_tmp    = R(1, mmax - 1, mmax);
+          auto Rm0_tmp   = R(1, mmax + m, mmax + m1);
+          auto Rm1_tmp   = R(1, mmax + m + 1, mmax + m1);
+          auto Rm2_tmp   = R(1, mmax + m - 1, mmax + m1);
+
+          auto f = a_tmp * (R0_tmp.real() * Rm0_tmp.real()) +
+                   b_pos_tmp * (R1_tmp.real() * Rm2_tmp.real() -
+                                R1_tmp.imag() * Rm2_tmp.imag()) +
+                   b_neg_tmp * (R2_tmp.real() * Rm1_tmp.real() -
+                                R2_tmp.imag() * Rm1_tmp.imag());
+          auto g = a_tmp * (R0_tmp.real() * Rm0_tmp.imag()) +
+                   b_pos_tmp * (R1_tmp.real() * Rm2_tmp.imag() +
+                                R1_tmp.imag() * Rm2_tmp.real()) +
+                   b_neg_tmp * (R2_tmp.real() * Rm1_tmp.imag() +
+                                R2_tmp.imag() * Rm1_tmp.real());
+          R(l, mmax + m, mmax + m1) = complex_type(f, g);
         }
         auto pow_tmp              = Kokkos::pow(-1.0, m + m1);
-        auto f_conj               = pow_tmp * R(l, m + mmax, m1 + mmax).real();
-        auto g_conj               = -pow_tmp * R(l, m + mmax, m1 + mmax).imag();
+        auto f_conj               = pow_tmp * R(l, mmax + m, mmax + m1).real();
+        auto g_conj               = -pow_tmp * R(l, mmax + m, mmax + m1).imag();
         R(l, mmax - m, mmax - m1) = complex_type(f_conj, g_conj);
       }
 
       int m1 = l;
       {
         if (m == -l) {
-          auto f = d(l - 2, mmax - m) *
-                   (R(1, mmax - 1, mmax + 1).real() *
-                        R(l1, mmax + m + 1, mmax + m1 - 1).real() -
-                    R(1, mmax - 1, mmax + 1).imag() *
-                        R(l1, mmax + m + 1, mmax + m1 - 1).imag());
-          auto g = d(l - 2, mmax - m) *
-                   (R(1, mmax - 1, mmax + 1).real() *
-                        R(l1, mmax + m + 1, mmax + m1 - 1).imag() +
-                    R(1, mmax - 1, mmax + 1).imag() *
-                        R(l1, mmax + m + 1, mmax + m1 - 1).real());
-          R(l, m + mmax, m1 + mmax) = complex_type(f, g);
+          auto d_tmp                = d(l - 2, mmax - m);
+          auto R0_tmp               = R(1, mmax - 1, mmax + 1);
+          auto R1_tmp               = R(l1, mmax + m + 1, mmax + m1 - 1);
+          auto f                    = d_tmp * (R0_tmp.real() * R1_tmp.real() -
+                            R0_tmp.imag() * R1_tmp.imag());
+          auto g                    = d_tmp * (R0_tmp.real() * R1_tmp.imag() +
+                            R0_tmp.imag() * R1_tmp.real());
+          R(l, mmax + m, mmax + m1) = complex_type(f, g);
         } else if (m == l) {
-          auto f = d(l - 2, mmax + m) *
-                   (R(1, mmax + 1, mmax + 1).real() *
-                        R(l1, mmax + m - 1, mmax + m1 - 1).real() -
-                    R(1, mmax + 1, mmax + 1).imag() *
-                        R(l1, mmax + m - 1, mmax + m1 - 1).imag());
-          auto g = d(l - 2, mmax + m) *
-                   (R(1, mmax + 1, mmax + 1).real() *
-                        R(l1, mmax + m - 1, mmax + m1 - 1).imag() -
-                    R(1, mmax + 1, mmax + 1).imag() *
-                        R(l1, mmax + m - 1, mmax + m1 - 1).real());
-          R(l, m + mmax, m1 + mmax) = complex_type(f, g);
+          auto d_tmp                = d(l - 2, mmax + m);
+          auto R0_tmp               = R(1, mmax + 1, mmax + 1);
+          auto R1_tmp               = R(l1, mmax + m - 1, mmax + m1 - 1);
+          auto f                    = d_tmp * (R0_tmp.real() * R1_tmp.real() -
+                            R0_tmp.imag() * R1_tmp.imag());
+          auto g                    = d_tmp * (R0_tmp.real() * R1_tmp.imag() +
+                            R0_tmp.imag() * R1_tmp.real());
+          R(l, mmax + m, mmax + m1) = complex_type(f, g);
         } else {
-          auto f =
-              c(l - 2, mmax + m) * (R(1, mmax, mmax + 1).real() *
-                                        R(l1, mmax + m, mmax + m1 - 1).real() -
-                                    R(1, mmax, mmax + 1).imag() *
-                                        R(l1, mmax + m, mmax + m1 - 1).imag()) +
-              d(l - 2, mmax + m) *
-                  (R(1, mmax + 1, mmax + 1).real() *
-                       R(l1, mmax + m - 1, mmax + m1 - 1).real() -
-                   R(1, mmax + 1, mmax + 1).imag() *
-                       R(l1, mmax + m - 1, mmax + m1 - 1).imag()) +
-              d(l - 2, mmax - m) *
-                  (R(1, mmax - 1, mmax + 1).real() *
-                       R(l1, mmax + m + 1, mmax + m1 - 1).real() -
-                   R(1, mmax - 1, mmax + 1).imag() *
-                       R(l1, mmax + m + 1, mmax + m1 - 1).imag());
-          auto g =
-              c(l - 2, mmax + m) * (R(1, mmax, mmax + 1).real() *
-                                        R(l1, mmax + m, mmax + m1 - 1).imag() +
-                                    R(1, mmax, mmax + 1).imag() *
-                                        R(l1, mmax + m, mmax + m1 - 1).real()) +
-              d(l - 2, mmax + m) *
-                  (R(1, mmax + 1, mmax + 1).real() *
-                       R(l1, mmax + m - 1, mmax + m1 - 1).imag() +
-                   R(1, mmax + 1, mmax + 1).imag() *
-                       R(l1, mmax + m - 1, mmax + m1 - 1).real()) +
-              d(l - 2, mmax - m) *
-                  (R(1, mmax - 1, mmax + 1).real() *
-                       R(l1, mmax + m + 1, mmax + m1 - 1).imag() +
-                   R(1, mmax - 1, mmax + 1).imag() *
-                       R(l1, mmax + m + 1, mmax + m1 - 1).real());
-          R(l, m + mmax, m1 + mmax) = complex_type(f, g);
+          auto c_tmp     = c(l - 2, mmax + m);
+          auto d_pos_tmp = d(l - 2, mmax + m);
+          auto d_neg_tmp = d(l - 2, mmax - m);
+          auto R0_tmp    = R(1, mmax, mmax + 1);
+          auto R1_tmp    = R(1, mmax + 1, mmax + 1);
+          auto R2_tmp    = R(1, mmax - 1, mmax + 1);
+          auto Rm0_tmp   = R(1, mmax + m, mmax + m1 - 1);
+          auto Rm1_tmp   = R(1, mmax + m + 1, mmax + m1 - 1);
+          auto Rm2_tmp   = R(1, mmax + m - 1, mmax + m1 - 1);
+
+          auto f = c_tmp * (R0_tmp.real() * Rm0_tmp.real() -
+                            R0_tmp.imag() * Rm0_tmp.imag()) +
+                   d_pos_tmp * (R1_tmp.real() * Rm2_tmp.real() -
+                                R1_tmp.imag() * Rm2_tmp.imag()) +
+                   d_neg_tmp * (R2_tmp.real() * Rm1_tmp.real() -
+                                R2_tmp.imag() * Rm1_tmp.imag());
+          auto g = c_tmp * (R0_tmp.real() * Rm0_tmp.imag() +
+                            R0_tmp.imag() * Rm0_tmp.real()) +
+                   d_pos_tmp * (R1_tmp.real() * Rm2_tmp.imag() +
+                                R1_tmp.imag() * Rm2_tmp.real()) +
+                   d_neg_tmp * (R2_tmp.real() * Rm1_tmp.imag() +
+                                R2_tmp.imag() * Rm1_tmp.real());
+          R(l, mmax + m, mmax + m1) = complex_type(f, g);
         }
         auto pow_tmp              = Kokkos::pow(-1.0, m + m1);
-        auto f_conj               = pow_tmp * R(l, m + mmax, m1 + mmax).real();
-        auto g_conj               = -pow_tmp * R(l, m + mmax, m1 + mmax).imag();
+        auto f_conj               = pow_tmp * R(l, mmax + m, mmax + m1).real();
+        auto g_conj               = -pow_tmp * R(l, mmax + m, mmax + m1).imag();
         R(l, mmax - m, mmax - m1) = complex_type(f_conj, g_conj);
       }
     }
