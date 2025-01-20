@@ -136,7 +136,10 @@ void test_convolution_execute(int n, std::string file_path, int np_luc) {
   auto dq                  = conv.dq();
   using RotationCoeffsType = RotationCoeffs<host_execution_space, T>;
   RotationCoeffsType coeffs;
-  auto h_a = coeffs.m_a, h_b = coeffs.m_b, h_c = coeffs.m_c, h_d = coeffs.m_d;
+  auto h_a = coeffs.m_a;
+  auto h_b = coeffs.m_b;
+  auto h_c = coeffs.m_c;
+  auto h_d = coeffs.m_d;
   auto h_deltarho_p =
       Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), deltarho_p_ref);
 

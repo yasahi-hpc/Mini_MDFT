@@ -94,9 +94,6 @@ struct OrientationProjectionMap {
     Kokkos::deep_copy(m_mu2, h_mu2);
 
     // Initialization made on host
-    using host_space = Kokkos::DefaultHostExecutionSpace;
-    using max_type   = Kokkos::Max<int>;
-
     int amax_m = 0, amax_mup = 0, amax_mu = 0;
     for (int ip = 0; ip < np; ip++) {
       amax_m   = Kokkos::max(amax_m, Kokkos::abs(h_m(ip)));
