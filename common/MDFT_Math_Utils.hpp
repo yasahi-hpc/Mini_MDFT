@@ -68,17 +68,14 @@ void gauss_legendre(InViewType& x, OutViewType& w) {
   Kokkos::deep_copy(w, h_w);
 }
 
-template <KokkosExecutionSpace ExecutionSpace, KokkosView ViewType>
-  requires KokkosViewAccesible<ExecutionSpace, ViewType>
-void uniform_mesh(const ExecutionSpace& exec, ViewType& x,
-                  typename ViewType::non_const_value_type dx) {
+template <KokkosView ViewType>
+void uniform_mesh(ViewType& x, typename ViewType::non_const_value_type dx) {
   using value_type = typename ViewType::non_const_value_type;
-  Kokkos::parallel_for(
-      "uniform_mesh",
-      Kokkos::RangePolicy<ExecutionSpace, Kokkos::IndexType<std::size_t>>(
-          exec, 0, x.size()),
-      KOKKOS_LAMBDA(const int i) { x(i) = static_cast<value_type>(i) * dx; });
-  exec.fence();
+  auto h_x         = Kokkos::create_mirror_view(x);
+  for (std::size_t i = 0; i < x.size(); i++) {
+    h_x(i) = static_cast<value_type>(i) * dx;
+  }
+  Kokkos::deep_copy(x, h_x);
 }
 
 // \brief Compute the cross product of two 3D vectors

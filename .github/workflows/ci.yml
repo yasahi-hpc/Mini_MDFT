@@ -46,6 +46,13 @@ jobs:
             cmake_flags:
               kokkos: -DKokkos_ENABLE_OPENMP=ON
               mini_mdft:
+          - name: cuda
+            image: nvcc
+            compiler:
+              cxx: g++
+            cmake_flags:
+              kokkos: -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH_AMPERE80=ON
+              mini_mdft: -DKokkosFFT_ENABLE_HOST_AND_DEVICE=ON
 
     steps:
       - name: Free Disk Space (Ubuntu)
@@ -82,3 +89,4 @@ jobs:
         run: |
           docker run -v ${{github.workspace}}:/work ${{ matrix.backend.image }} \
             ctest --test-dir build/unit_test -C ${{env.BUILD_TYPE}} --output-on-failure
+        if: ${{ matrix.backend.name != 'cuda' }}

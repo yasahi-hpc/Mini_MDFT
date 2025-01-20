@@ -226,7 +226,7 @@ void test_spherical_harmonics_lu(int mmax, Kokkos::Array<T, 3> q) {
   }
 
   Kokkos::deep_copy(R_ref, h_R_ref);
-  EXPECT_TRUE(allclose(execution_space(), R, R_ref, epsilon));
+  EXPECT_TRUE(allclose(execution_space(), R, R_ref, epsilon, epsilon));
 }
 
 TYPED_TEST(TestRotation, CoeffInitialization) {

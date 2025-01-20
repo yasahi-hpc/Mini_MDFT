@@ -65,7 +65,8 @@ struct Solvent {
       typename Kokkos::View<ScalarType[3][3][3], ExecutionSpace>;
   using StaticView4DType =
       typename Kokkos::View<ScalarType[3][3][3][3], ExecutionSpace>;
-  using View4DType = typename Kokkos::View<ScalarType****, ExecutionSpace>;
+  using View4DType = typename Kokkos::View<ScalarType****, Kokkos::LayoutRight,
+                                           ExecutionSpace>;
   using ComplexView4DType =
       typename Kokkos::View<Kokkos::complex<ScalarType>****, ExecutionSpace>;
   using ComplexView5DType =
@@ -567,9 +568,11 @@ struct Solvents {
 // \param delta_rho [out] 6D View of delta_rho, shape(nx, ny, nz, ntheta, nphi,
 // npsi)
 // \param rho0 [in] Reference density
+// template <KokkosExecutionSpace ExecutionSpace, KokkosView ViewType,
+//          typename ScalarType>
+//  requires KokkosViewAccesible<ExecutionSpace, ViewType>
 template <KokkosExecutionSpace ExecutionSpace, KokkosView ViewType,
           typename ScalarType>
-  requires KokkosViewAccesible<ExecutionSpace, ViewType>
 void get_delta_rho(const ExecutionSpace& exec_space, const ViewType& xi,
                    const ViewType& delta_rho, const ScalarType rho0) {
   const std::size_t n = xi.size();
@@ -605,10 +608,12 @@ void get_delta_rho(const ExecutionSpace& exec_space, const ViewType& xi,
 // \param ff [out] density fluctuation
 // \param rho0 [in] Reference density
 // \param prefactor [in] Coefficient prefactor
+// template <KokkosExecutionSpace ExecutionSpace, KokkosView View1DType,
+//          KokkosView View4DType, typename ScalarType>
+//  requires KokkosViewAccesible<ExecutionSpace, View1DType> &&
+//           KokkosViewAccesible<ExecutionSpace, View4DType>
 template <KokkosExecutionSpace ExecutionSpace, KokkosView View1DType,
           KokkosView View4DType, typename ScalarType>
-  requires KokkosViewAccesible<ExecutionSpace, View1DType> &&
-           KokkosViewAccesible<ExecutionSpace, View4DType>
 void get_delta_f(const ExecutionSpace& exec_space, const View4DType& xi,
                  const View4DType& vexc, const View1DType& w,
                  const View4DType& delta_f, ScalarType& ff,
@@ -624,7 +629,8 @@ void get_delta_f(const ExecutionSpace& exec_space, const View4DType& xi,
   // Flatten Views for simplicity
   const std::size_t nxyz = nx * ny * nz;
   using ValueType        = typename View4DType::non_const_value_type;
-  using View2DType       = Kokkos::View<ValueType**, ExecutionSpace>;
+  using LayoutType       = typename View4DType::array_layout;
+  using View2DType = Kokkos::View<ValueType**, LayoutType, ExecutionSpace>;
   View2DType delta_f_2d(delta_f.data(), nxyz, no), xi_2d(xi.data(), nxyz, no),
       vexc_2d(vexc.data(), nxyz, no);
 
@@ -646,7 +652,9 @@ void get_delta_f(const ExecutionSpace& exec_space, const View4DType& xi,
                   2.0 * rho0 * xi_2d(ixyz, io) * vexc_2d(ixyz, io);
             },
             sum);
-        l_ff += rho0 * sum * prefactor;
+
+        Kokkos::single(Kokkos::PerTeam(team_member),
+                       [&]() { l_ff += rho0 * sum * prefactor; });
       },
       ff);
 }

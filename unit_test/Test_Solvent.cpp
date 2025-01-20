@@ -167,8 +167,8 @@ void test_get_delta_rho() {
 
 template <typename T>
 void test_get_delta_f() {
-  using View1DType = Kokkos::View<T*, execution_space>;
-  using View4DType = Kokkos::View<T****, execution_space>;
+  using View1DType = Kokkos::View<T*, Kokkos::LayoutRight, execution_space>;
+  using View4DType = Kokkos::View<T****, Kokkos::LayoutRight, execution_space>;
   const int n0 = 2, n1 = 3, n2 = 4, n3 = 5;
   View1DType w("w", n3);
   View4DType xi("xi", n0, n1, n2, n3), vexc("vexc", n0, n1, n2, n3),
