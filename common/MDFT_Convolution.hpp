@@ -317,9 +317,8 @@ class Convolution {
   // \tparam View Orientation view, needs to be a Complex View
   //
   // \param deltarho_p [in/out] Orientation (nm * nmup * nmu, nx, ny, nz)
-  // template <KokkosView View>
-  //  requires KokkosViewAccesible<ExecutionSpace, View>
   template <KokkosView View>
+    requires KokkosViewAccesible<ExecutionSpace, View>
   void execute(const View& deltarho_p) {
     // delta_rho_hat^m_{\mu', \mu}(q) = FFT [delta_rho^m_{\mu', \mu}(r)]
     m_forward_plan->execute(deltarho_p, deltarho_p,

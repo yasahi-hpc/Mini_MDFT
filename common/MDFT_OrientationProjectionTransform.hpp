@@ -260,10 +260,9 @@ class OrientationProjectionTransform {
   // \param o [in] Orientation (nx * ny * nz, theta, phi, psi)
   // \param p [out] Projection (np, nx, ny, nz)
   // [R.K] mu2 -> psi, mup -> phi
-  // template <KokkosView OView, KokkosView PView>
-  //  requires KokkosViewAccesible<ExecutionSpace, OView> &&
-  //           KokkosViewAccesible<ExecutionSpace, PView>
   template <KokkosView OView, KokkosView PView>
+    requires KokkosViewAccesible<ExecutionSpace, OView> &&
+             KokkosViewAccesible<ExecutionSpace, PView>
   void angl2proj(const OView& o, const PView& p) {
     int N = o.extent(0), ntheta = o.extent(1), nphi = o.extent(2),
         npsi = o.extent(3);
@@ -379,10 +378,9 @@ class OrientationProjectionTransform {
   //
   // \param p [in] Projection (np, nx, ny, nz)
   // \param o [out] Orientation (nx * ny * nz, theta, phi, psi)
-  // template <KokkosView PView, KokkosView OView>
-  //  requires KokkosViewAccesible<ExecutionSpace, PView> &&
-  //           KokkosViewAccesible<ExecutionSpace, OView>
   template <KokkosView PView, KokkosView OView>
+    requires KokkosViewAccesible<ExecutionSpace, PView> &&
+             KokkosViewAccesible<ExecutionSpace, OView>
   void proj2angl(const PView& p, const OView& o) {
     int N = o.extent(0), ntheta = o.extent(1);
 
