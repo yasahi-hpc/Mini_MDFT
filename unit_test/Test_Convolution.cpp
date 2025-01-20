@@ -78,9 +78,10 @@ void test_convolution_execute(int n, std::string file_path, int np_luc) {
   MDFT::SpatialGrid<execution_space, T> grid(IntArrayType{n, n, n},
                                              ScalarArrayType{1, 1, 1});
   using complex_type = Kokkos::complex<T>;
-  using ViewType     = Kokkos::View<complex_type****, execution_space>;
+  using ViewType =
+      Kokkos::View<complex_type****, Kokkos::LayoutRight, execution_space>;
 
-  int mmax = 5, molrotsymorder = 10;
+  int mmax = 3, molrotsymorder = 2;
   MDFT::AngularGrid<execution_space, T> angular_grid(mmax, molrotsymorder);
   MDFT::OrientationProjectionMap<execution_space, T> map(angular_grid);
   MDFT::Convolution<execution_space, T> conv(file_path, grid, angular_grid, map,
@@ -97,8 +98,9 @@ void test_convolution_execute(int n, std::string file_path, int np_luc) {
   const Kokkos::complex<T> z(1.0, 1.0);
   Kokkos::Random_XorShift64_Pool<> random_pool(/*seed=*/12345);
   Kokkos::fill_random(deltarho_p, random_pool, z);
+  Kokkos::deep_copy(deltarho_p_ref, deltarho_p);
 
-  // conv.execute(deltarho_p);
+  conv.execute(deltarho_p);
 
   // Make a reference on host
   auto h_kx =
@@ -118,10 +120,12 @@ void test_convolution_execute(int n, std::string file_path, int np_luc) {
   auto h_mnmunukhi_q = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
                                                            conv.mnmunukhi_q());
   int np_new         = h_mnmunukhi_q.extent(0);
-  using HostIntView3DType     = Kokkos::View<int***, Kokkos::HostSpace>;
-  using HostComplexView1DType = Kokkos::View<complex_type*, Kokkos::HostSpace>;
+  using HostIntView3DType =
+      Kokkos::View<int***, Kokkos::LayoutRight, Kokkos::HostSpace>;
+  using HostComplexView1DType =
+      Kokkos::View<complex_type*, Kokkos::LayoutRight, Kokkos::HostSpace>;
   using HostComplexView3DType =
-      Kokkos::View<complex_type***, Kokkos::HostSpace>;
+      Kokkos::View<complex_type***, Kokkos::LayoutRight, Kokkos::HostSpace>;
   HostIntView3DType h_gamma_p_isok("gamma_p_isok", nx, ny, nz);
   HostComplexView1DType h_deltarho_p_q("deltarho_p_q", np),
       h_deltarho_p_mq("deltarho_p_mq", np), h_gamma_p_q("gamma_p_q", np),
@@ -133,11 +137,14 @@ void test_convolution_execute(int n, std::string file_path, int np_luc) {
   using RotationCoeffsType = RotationCoeffs<host_execution_space, T>;
   RotationCoeffsType coeffs;
   auto h_a = coeffs.m_a, h_b = coeffs.m_b, h_c = coeffs.m_c, h_d = coeffs.m_d;
-  auto h_deltarho_p = Kokkos::create_mirror_view(deltarho_p_ref);
+  auto h_deltarho_p =
+      Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), deltarho_p_ref);
 
-  T epsilon = std::numeric_limits<T>::epsilon() * 1e3;
+  T epsilon = std::numeric_limits<T>::epsilon();
   // Start the kernel
-  KokkosFFT::fft(host_execution_space(), h_deltarho_p, h_deltarho_p);
+  using axis_type = KokkosFFT::axis_type<3>;
+  KokkosFFT::fftn(host_execution_space(), h_deltarho_p, h_deltarho_p,
+                  axis_type{-3, -2, -1}, KokkosFFT::Normalization::none);
 
   for (int iz_q = 0; iz_q < nz / 2 + 1; iz_q++) {
     for (int iy_q = 0; iy_q < ny; iy_q++) {
@@ -186,7 +193,7 @@ void test_convolution_execute(int n, std::string file_path, int np_luc) {
         Kokkos::deep_copy(h_gamma_p_mq, sub_deltarho_p_mq);
         for (int im = 0; im <= mmax; im++) {
           for (int ikhi = -im; ikhi <= im; ikhi++) {
-            for (int imu2 = 0; imu2 < im / mrso; imu2++) {
+            for (int imu2 = 0; imu2 <= im / mrso; imu2++) {
               complex_type deltarho_p_q_loc(0.0), deltarho_p_mq_loc(0.0);
               for (int imup = -im; imup <= im; imup++) {
                 auto ip_mapped = p_map(im, imup + mmax, imu2);
@@ -237,7 +244,7 @@ void test_convolution_execute(int n, std::string file_path, int np_luc) {
           auto imu2 = p_to_mu2(ip);
 
           for (int in = Kokkos::abs(ikhi); in <= mmax; in++) {
-            for (int inu2 = -in / mrso; inu2 < in / mrso; inu2++) {
+            for (int inu2 = -in / mrso; inu2 <= in / mrso; inu2++) {
               auto ceff = h_ceff(ia_tmp);
               if (inu2 < 0) {
                 auto ip_mapped = p_map(in, ikhi + mmax, Kokkos::abs(inu2));
@@ -276,7 +283,7 @@ void test_convolution_execute(int n, std::string file_path, int np_luc) {
         Kokkos::deep_copy(h_deltarho_p_mq, 0.0);
         for (int im = 0; im <= mmax; im++) {
           for (int imup = -im; imup <= im; imup++) {
-            for (int imu2 = 0; imu2 < im / mrso; imu2++) {
+            for (int imu2 = 0; imu2 <= im / mrso; imu2++) {
               for (int ikhi = -im; ikhi <= im; ikhi++) {
                 h_deltarho_p_q(ip_tmp) +=
                     h_gamma_p_q(p_map(im, ikhi + mmax, imu2)) *
@@ -313,12 +320,13 @@ void test_convolution_execute(int n, std::string file_path, int np_luc) {
     }    // for (int iy_q = 0; iy_q < ny; iy_q++)
   }      // for (int iz_q = 0; iz_q < nz/2+1; iz_q++)
 
-  KokkosFFT::ifft(host_execution_space(), h_deltarho_p, h_deltarho_p);
+  KokkosFFT::ifftn(host_execution_space(), h_deltarho_p, h_deltarho_p,
+                   axis_type{-3, -2, -1}, KokkosFFT::Normalization::none);
 
   Kokkos::deep_copy(deltarho_p_ref, h_deltarho_p);
 
-  // EXPECT_TRUE(allclose(execution_space(), deltarho_p, deltarho_p_ref,
-  // epsilon));
+  EXPECT_TRUE(
+      allclose(execution_space(), deltarho_p, deltarho_p_ref, epsilon * 1e3));
 }
 
 TYPED_TEST(TestConvolution, Initialization) {
