@@ -28,14 +28,17 @@ class Solver {
       OrientationProjectionTransform<ExecutionSpace, ScalarType>;
   using ConvolutionType = Convolution<ExecutionSpace, ScalarType>;
 
-  using View3DType = Kokkos::View<ScalarType***, ExecutionSpace>;
-  using View4DType = Kokkos::View<ScalarType****, ExecutionSpace>;
-  using View5DType = Kokkos::View<ScalarType*****, ExecutionSpace>;
+  using View3DType =
+      Kokkos::View<ScalarType***, Kokkos::LayoutRight, ExecutionSpace>;
+  using View4DType =
+      Kokkos::View<ScalarType****, Kokkos::LayoutRight, ExecutionSpace>;
+  using View5DType =
+      Kokkos::View<ScalarType*****, Kokkos::LayoutRight, ExecutionSpace>;
 
-  using ComplexView2DType =
-      Kokkos::View<Kokkos::complex<ScalarType>**, ExecutionSpace>;
-  using ComplexView4DType =
-      Kokkos::View<Kokkos::complex<ScalarType>****, ExecutionSpace>;
+  using ComplexView2DType = Kokkos::View<Kokkos::complex<ScalarType>**,
+                                         Kokkos::LayoutRight, ExecutionSpace>;
+  using ComplexView4DType = Kokkos::View<Kokkos::complex<ScalarType>****,
+                                         Kokkos::LayoutRight, ExecutionSpace>;
 
   ExecutionSpace m_exec_space;
 

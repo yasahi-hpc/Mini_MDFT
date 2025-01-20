@@ -23,18 +23,22 @@ class Convolution {
   using IntView1DType                  = Kokkos::View<IntType*, ExecutionSpace>;
   using IntView2DType = Kokkos::View<IntType**, ExecutionSpace>;
   using IntView3DType = Kokkos::View<IntType***, ExecutionSpace>;
-  using View1DType    = Kokkos::View<ScalarType*, ExecutionSpace>;
-  using View2DType    = Kokkos::View<ScalarType**, ExecutionSpace>;
-  using View3DType    = Kokkos::View<ScalarType***, ExecutionSpace>;
-  using View4DType    = Kokkos::View<ScalarType****, ExecutionSpace>;
-  using ComplexView1DType =
-      Kokkos::View<Kokkos::complex<ScalarType>*, ExecutionSpace>;
-  using ComplexView2DType =
-      Kokkos::View<Kokkos::complex<ScalarType>**, ExecutionSpace>;
-  using ComplexView3DType =
-      Kokkos::View<Kokkos::complex<ScalarType>***, ExecutionSpace>;
-  using ComplexView4DType =
-      Kokkos::View<Kokkos::complex<ScalarType>****, ExecutionSpace>;
+  using View1DType =
+      Kokkos::View<ScalarType*, Kokkos::LayoutRight, ExecutionSpace>;
+  using View2DType =
+      Kokkos::View<ScalarType**, Kokkos::LayoutRight, ExecutionSpace>;
+  using View3DType =
+      Kokkos::View<ScalarType***, Kokkos::LayoutRight, ExecutionSpace>;
+  using View4DType =
+      Kokkos::View<ScalarType****, Kokkos::LayoutRight, ExecutionSpace>;
+  using ComplexView1DType  = Kokkos::View<Kokkos::complex<ScalarType>*,
+                                         Kokkos::LayoutRight, ExecutionSpace>;
+  using ComplexView2DType  = Kokkos::View<Kokkos::complex<ScalarType>**,
+                                         Kokkos::LayoutRight, ExecutionSpace>;
+  using ComplexView3DType  = Kokkos::View<Kokkos::complex<ScalarType>***,
+                                         Kokkos::LayoutRight, ExecutionSpace>;
+  using ComplexView4DType  = Kokkos::View<Kokkos::complex<ScalarType>****,
+                                         Kokkos::LayoutRight, ExecutionSpace>;
   using SpatialGridType    = SpatialGrid<ExecutionSpace, ScalarType>;
   using AngularGridType    = AngularGrid<ExecutionSpace, ScalarType>;
   using RotationCoeffsType = RotationCoeffs<ExecutionSpace, ScalarType>;
@@ -322,8 +326,9 @@ class Convolution {
   // \tparam View Orientation view, needs to be a Complex View
   //
   // \param deltarho_p [in/out] Orientation (nm * nmup * nmu, nx, ny, nz)
+  // template <KokkosView View>
+  //  requires KokkosViewAccesible<ExecutionSpace, View>
   template <KokkosView View>
-    requires KokkosViewAccesible<ExecutionSpace, View>
   void execute(const View& deltarho_p) {
     // delta_rho_hat^m_{\mu', \mu}(q) = FFT [delta_rho^m_{\mu', \mu}(r)]
     m_forward_plan->execute(deltarho_p, deltarho_p,

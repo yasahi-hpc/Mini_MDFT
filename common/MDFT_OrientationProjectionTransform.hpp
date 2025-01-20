@@ -16,10 +16,13 @@ namespace MDFT {
 template <KokkosExecutionSpace ExecutionSpace, typename ScalarType>
 struct OrientationProjectionMap {
  private:
-  using IntType         = int;
-  using IntView1DType   = Kokkos::View<IntType*, ExecutionSpace>;
-  using IntView3DType   = Kokkos::View<IntType***, ExecutionSpace>;
-  using View2DType      = Kokkos::View<ScalarType**, ExecutionSpace>;
+  using IntType = int;
+  using IntView1DType =
+      Kokkos::View<IntType*, Kokkos::LayoutRight, ExecutionSpace>;
+  using IntView3DType =
+      Kokkos::View<IntType***, Kokkos::LayoutRight, ExecutionSpace>;
+  using View2DType =
+      Kokkos::View<ScalarType**, Kokkos::LayoutRight, ExecutionSpace>;
   using AngularGridType = AngularGrid<ExecutionSpace, ScalarType>;
 
   //! index of the projection corresponding to m, mup, mu
@@ -95,14 +98,11 @@ struct OrientationProjectionMap {
     using max_type   = Kokkos::Max<int>;
 
     int amax_m = 0, amax_mup = 0, amax_mu = 0;
-    Kokkos::parallel_reduce(
-        "maximum", Kokkos::RangePolicy<host_space>(0, np),
-        KOKKOS_LAMBDA(const int ip, int& lmax_m, int& lmax_mup, int& lmax_mu) {
-          lmax_m   = Kokkos::max(lmax_m, Kokkos::abs(h_m(ip)));
-          lmax_mup = Kokkos::max(lmax_mup, Kokkos::abs(h_mup(ip)));
-          lmax_mu  = Kokkos::max(lmax_mu, Kokkos::abs(h_mu(ip)));
-        },
-        max_type(amax_m), max_type(amax_mup), max_type(amax_mu));
+    for (int ip = 0; ip < np; ip++) {
+      amax_m   = Kokkos::max(amax_m, Kokkos::abs(h_m(ip)));
+      amax_mup = Kokkos::max(amax_mup, Kokkos::abs(h_mup(ip)));
+      amax_mu  = Kokkos::max(amax_mu, Kokkos::abs(h_mu(ip)));
+    }
 
     MDFT::Impl::Throw_If(amax_m > mmax || amax_mup > mmax || amax_mu > mmax,
                          "Invalid m, mup, mu values");
@@ -162,18 +162,24 @@ class OrientationProjectionTransform {
  private:
   constexpr static std::size_t FFT_DIM = 2;
   using IntType                        = int;
-  using IntView1DType                  = Kokkos::View<IntType*, ExecutionSpace>;
-  using IntView3DType = Kokkos::View<IntType***, ExecutionSpace>;
-  using View1DType    = Kokkos::View<ScalarType*, ExecutionSpace>;
-  using View2DType    = Kokkos::View<ScalarType**, ExecutionSpace>;
-  using View3DType    = Kokkos::View<ScalarType***, ExecutionSpace>;
-  using View4DType    = Kokkos::View<ScalarType****, ExecutionSpace>;
-  using ComplexView3DType =
-      Kokkos::View<Kokkos::complex<ScalarType>***, ExecutionSpace>;
-  using ComplexView4DType =
-      Kokkos::View<Kokkos::complex<ScalarType>****, ExecutionSpace>;
-  using SpatialGridType = SpatialGrid<ExecutionSpace, ScalarType>;
-  using AngularGridType = AngularGrid<ExecutionSpace, ScalarType>;
+  using IntView1DType =
+      Kokkos::View<IntType*, Kokkos::LayoutRight, ExecutionSpace>;
+  using IntView3DType =
+      Kokkos::View<IntType***, Kokkos::LayoutRight, ExecutionSpace>;
+  using View1DType =
+      Kokkos::View<ScalarType*, Kokkos::LayoutRight, ExecutionSpace>;
+  using View2DType =
+      Kokkos::View<ScalarType**, Kokkos::LayoutRight, ExecutionSpace>;
+  using View3DType =
+      Kokkos::View<ScalarType***, Kokkos::LayoutRight, ExecutionSpace>;
+  using View4DType =
+      Kokkos::View<ScalarType****, Kokkos::LayoutRight, ExecutionSpace>;
+  using ComplexView3DType = Kokkos::View<Kokkos::complex<ScalarType>***,
+                                         Kokkos::LayoutRight, ExecutionSpace>;
+  using ComplexView4DType = Kokkos::View<Kokkos::complex<ScalarType>****,
+                                         Kokkos::LayoutRight, ExecutionSpace>;
+  using SpatialGridType   = SpatialGrid<ExecutionSpace, ScalarType>;
+  using AngularGridType   = AngularGrid<ExecutionSpace, ScalarType>;
   using OrientationProjectionMapType =
       OrientationProjectionMap<ExecutionSpace, ScalarType>;
   using ForwardPlanType =
@@ -182,7 +188,7 @@ class OrientationProjectionTransform {
       KokkosFFT::Plan<ExecutionSpace, ComplexView4DType, View4DType, FFT_DIM>;
   // Internal Scratch View Type
   using ScratchViewType =
-      Kokkos::View<Kokkos::complex<ScalarType>***,
+      Kokkos::View<Kokkos::complex<ScalarType>***, Kokkos::LayoutRight,
                    typename ExecutionSpace::scratch_memory_space,
                    Kokkos::MemoryTraits<Kokkos::Unmanaged> >;
 
@@ -257,9 +263,10 @@ class OrientationProjectionTransform {
   // \param o [in] Orientation (nx * ny * nz, theta, phi, psi)
   // \param p [out] Projection (np, nx, ny, nz)
   // [R.K] mu2 -> psi, mup -> phi
+  // template <KokkosView OView, KokkosView PView>
+  //  requires KokkosViewAccesible<ExecutionSpace, OView> &&
+  //           KokkosViewAccesible<ExecutionSpace, PView>
   template <KokkosView OView, KokkosView PView>
-    requires KokkosViewAccesible<ExecutionSpace, OView> &&
-             KokkosViewAccesible<ExecutionSpace, PView>
   void angl2proj(const OView& o, const PView& p) {
     int N = o.extent(0), ntheta = o.extent(1), nphi = o.extent(2),
         npsi = o.extent(3);
@@ -300,7 +307,8 @@ class OrientationProjectionTransform {
     int np              = p_to_m.extent(0);
 
     using value_type  = typename PView::non_const_value_type;
-    using PView2DType = Kokkos::View<value_type**, ExecutionSpace>;
+    using layout_type = typename PView::array_layout;
+    using PView2DType = Kokkos::View<value_type**, layout_type, ExecutionSpace>;
     PView2DType p2d(p.data(), p.extent(0), N);
     Kokkos::parallel_for(
         "to_projection", team_policy,
@@ -374,9 +382,10 @@ class OrientationProjectionTransform {
   //
   // \param p [in] Projection (np, nx, ny, nz)
   // \param o [out] Orientation (nx * ny * nz, theta, phi, psi)
+  // template <KokkosView PView, KokkosView OView>
+  //  requires KokkosViewAccesible<ExecutionSpace, PView> &&
+  //           KokkosViewAccesible<ExecutionSpace, OView>
   template <KokkosView PView, KokkosView OView>
-    requires KokkosViewAccesible<ExecutionSpace, PView> &&
-             KokkosViewAccesible<ExecutionSpace, OView>
   void proj2angl(const PView& p, const OView& o) {
     int N = o.extent(0), ntheta = o.extent(1);
 
@@ -403,7 +412,8 @@ class OrientationProjectionTransform {
             .set_scratch_size(level, Kokkos::PerTeam(scratch_size));
 
     using value_type  = typename PView::non_const_value_type;
-    using PView2DType = Kokkos::View<value_type**, ExecutionSpace>;
+    using layout_type = typename PView::array_layout;
+    using PView2DType = Kokkos::View<value_type**, layout_type, ExecutionSpace>;
     PView2DType p2d(p.data(), p.extent(0), N);
     Kokkos::parallel_for(
         "to_angle", team_policy, KOKKOS_LAMBDA(const member_type& team_member) {
