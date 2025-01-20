@@ -85,7 +85,9 @@ class Convolution {
 
   // Instead of gamma_p_isok, we use a map array without overlapping (length, 3)
   IntView2DType m_gamma_p_map;
-  IntView2DType m_ia_map;
+
+  // Mapping (ip, in, inu2) -> ia
+  IntView3DType m_ia_map;
 
   ComplexView2DType m_mnmunukhi_q;
 
@@ -169,29 +171,16 @@ class Convolution {
     auto h_p_to_mup =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), m_map.mup());
 
-    int na = 0;
-    for (int ip = 0; ip < np; ip++) {
-      auto ikhi = h_p_to_mup(ip);
-      for (int in = Kokkos::abs(ikhi); in <= m_mmax; in++) {
-        for (int inu2 = -in / m_molrotsymorder; inu2 < in / m_molrotsymorder;
-             inu2++) {
-          na++;
-        }
-      }
-    }
-
-    m_ia_map      = IntView2DType("ia_map", na, 3);
+    int mmax = m_mmax, mrso = m_molrotsymorder;
+    m_ia_map      = IntView3DType("ia_map", np, mmax + 1, 2 * mmax / mrso + 1);
     auto h_ia_map = Kokkos::create_mirror_view(m_ia_map);
 
     int ia = 0;
     for (int ip = 0; ip < np; ip++) {
       auto ikhi = h_p_to_mup(ip);
-      for (int in = Kokkos::abs(ikhi); in <= m_mmax; in++) {
-        for (int inu2 = -in / m_molrotsymorder; inu2 < in / m_molrotsymorder;
-             inu2++) {
-          h_ia_map(ia, 0) = ip;
-          h_ia_map(ia, 1) = in;
-          h_ia_map(ia, 2) = inu2;
+      for (int in = Kokkos::abs(ikhi); in <= mmax; in++) {
+        for (int inu2 = -in / mrso; inu2 < in / mrso; inu2++) {
+          h_ia_map(ip, in, inu2 + mmax / mrso) = ia;
           ia++;
         }
       }
@@ -317,6 +306,8 @@ class Convolution {
 
  public:
   auto gamma_p_map() const { return m_gamma_p_map; }
+  auto mnmunukhi_q() const { return m_mnmunukhi_q; }
+  auto dq() const { return m_dq; }
 
   // \brief
   // \tparam View Orientation view, needs to be a Complex View
@@ -342,8 +333,10 @@ class Convolution {
     std::size_t mmax2_p1      = static_cast<std::size_t>(2 * m_mmax + 1);
     std::size_t request_size  = mmax_p1 * mmax2_p1 * mmax2_p1;
     std::size_t request_size2 = m_np;
-    int scratch_size          = ScratchView3DType::shmem_size(request_size) +
-                       ScratchView1DType::shmem_size(request_size2 * 5);
+    std::size_t np_new        = m_mnmunukhi_q.extent(0);
+    int scratch_size =
+        ScratchView3DType::shmem_size(request_size) +
+        ScratchView1DType::shmem_size(request_size2 * 4 + np_new);
     int level = 1;  // using global memory
     auto team_policy =
         Kokkos::TeamPolicy<>(N, Kokkos::AUTO, Kokkos::AUTO)
@@ -356,7 +349,7 @@ class Convolution {
     auto p_map    = m_map.p();
     auto p_to_m   = m_map.m();
     auto p_to_mup = m_map.mup();
-    auto p_to_mu  = m_map.mu();
+    auto p_to_mu2 = m_map.mu2();
 
     auto gamma_p_map = m_gamma_p_map;
     auto ia_map      = m_ia_map;
@@ -381,10 +374,6 @@ class Convolution {
           const int ix_mq = MDFT::Impl::inv_index(ix, nx);
           const int iy_mq = MDFT::Impl::inv_index(iy, ny);
           const int iz_mq = MDFT::Impl::inv_index(iz, nz);
-
-          // pay attention to the special case(s) where q=-q
-          // this should only happen for ix=1 and ix=nx/2
-          bool q_eq_mq = (ix_mq == ix && iy_mq == iy && iz_mq == iz);
 
           // Prepare R^m_mup_khi(q)
           ScratchView3DType s_R(team_member.team_scratch(level), mmax_p1,
@@ -418,19 +407,19 @@ class Convolution {
 
           Kokkos::parallel_for(
               Kokkos::TeamThreadRange(team_member, np), [&](const int ip) {
-                s_gamma_p_q(ip)  = deltarho_p(ip, iz, iy, ix);
-                s_gamma_p_mq(ip) = deltarho_p(ip, iz_mq, iy_mq, ix_mq);
+                s_gamma_p_q(ip)  = deltarho_p(ip, ix, iy, iz);
+                s_gamma_p_mq(ip) = deltarho_p(ip, ix_mq, iy_mq, iz_mq);
                 auto im          = p_to_m(ip);
                 auto ikphi       = p_to_mup(ip);
-                auto imu2        = p_to_mu(ip);
+                auto imu2        = p_to_mu2(ip);
                 Kokkos::complex<ScalarType> deltarho_p_q_loc(0.0),
                     deltarho_p_mq_loc(0.0);
                 for (int imup = -im; imup <= im; imup++) {
                   auto ip_mapped = p_map(im, imup + mmax, imu2);
-                  deltarho_p_q_loc +=
-                      s_gamma_p_q(ip) * s_R(im, imup + mmax, ikphi + mmax);
-                  deltarho_p_mq_loc +=
-                      s_gamma_p_mq(ip) * s_R(im, imup + mmax, -ikphi + mmax);
+                  deltarho_p_q_loc += s_gamma_p_q(ip_mapped) *
+                                      s_R(im, imup + mmax, ikphi + mmax);
+                  deltarho_p_mq_loc += s_gamma_p_mq(ip_mapped) *
+                                       s_R(im, imup + mmax, -ikphi + mmax);
                 }
                 s_deltarho_p_q(ip)  = deltarho_p_q_loc;
                 s_deltarho_p_mq(ip) = deltarho_p_mq_loc * Kokkos::pow(-1.0, im);
@@ -451,35 +440,45 @@ class Convolution {
           // linear interpolation    y=alpha*upperbound + (1-alpha)*lowerbound
           ScalarType alpha = effectiveiq - static_cast<ScalarType>(iq);
 
+          Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, np_new),
+                               [&](const int ip_new) {
+                                 // Linear interpolation
+                                 s_ceff(ip_new) =
+                                     alpha * mnmunukhi_q(ip_new, iq + 1) +
+                                     (1.0 - alpha) * mnmunukhi_q(ip_new, iq);
+                               });
+          team_member.team_barrier();
+
           // We should parallelize over ia
           // Then map it to ip, n, and nu2
           Kokkos::parallel_for(
-              Kokkos::TeamThreadRange(team_member, na), [&](const int ia) {
-                const int ip = ia_map(ia, 0), in = ia_map(ia, 1),
-                          inu2 = ia_map(ia, 2);
-
-                s_gamma_p_q(ip)  = Kokkos::complex<ScalarType>(0.0, 0.0);
-                s_gamma_p_mq(ip) = Kokkos::complex<ScalarType>(0.0, 0.0);
-
-                // Linear interpolation
-                s_ceff(ip) = alpha * mnmunukhi_q(ip, iq + 1) +
-                             (1.0 - alpha) * mnmunukhi_q(ip, iq);
-
+              Kokkos::TeamThreadRange(team_member, np), [&](const int ip) {
                 auto im   = p_to_m(ip);
                 auto ikhi = p_to_mup(ip);
+                auto imu2 = p_to_mu2(ip);
 
-                auto ceff = s_ceff(ia);
-                if (inu2 < 0) {
-                  auto ip_mapped = p_map(in, ikhi, Kokkos::abs(inu2));
-                  s_gamma_p_q(ip) += ceff * s_deltarho_p_q(ip_mapped);
-                  s_gamma_p_mq(ip) += ceff * s_deltarho_p_mq(ip_mapped);
-                } else {
-                  auto ip_mapped = p_map(in, ikhi, inu2);
-                  s_gamma_p_q(ip) +=
-                      ceff * Kokkos::conj(s_deltarho_p_mq(ip_mapped));
-                  s_gamma_p_mq(ip) +=
-                      ceff * Kokkos::conj(s_deltarho_p_q(ip_mapped));
+                ComplexType sum_gamma_p_q(0.0, 0.0), sum_gamma_p_mq(0.0, 0.0);
+                for (int in = Kokkos::abs(ikhi); in <= mmax; in++) {
+                  for (int inu2 = -in / mrso; inu2 < in / mrso; inu2++) {
+                    auto ia   = ia_map(ip, in, inu2 + mmax / mrso);
+                    auto ceff = s_ceff(ia);
+
+                    if (inu2 < 0) {
+                      auto ip_mapped =
+                          p_map(in, ikhi + mmax, Kokkos::abs(inu2));
+                      sum_gamma_p_q += ceff * s_deltarho_p_q(ip_mapped);
+                      sum_gamma_p_mq += ceff * s_deltarho_p_mq(ip_mapped);
+                    } else {
+                      auto ip_mapped = p_map(in, ikhi + mmax, inu2);
+                      sum_gamma_p_q +=
+                          ceff * Kokkos::conj(s_deltarho_p_mq(ip_mapped));
+                      sum_gamma_p_mq +=
+                          ceff * Kokkos::conj(s_deltarho_p_q(ip_mapped));
+                    }
+                  }
                 }
+                s_gamma_p_q(ip)  = sum_gamma_p_q;
+                s_gamma_p_mq(ip) = sum_gamma_p_mq;
               });
 
           // Rotation from molecular frame to fix frame
@@ -488,32 +487,31 @@ class Convolution {
           // conjugue complexe de l'harm sph generalisee we use deltarho_p_q and
           // deltarho_p_mq as temp arrays since they're not used after MOZ
 
-          // prevent underflow in gamma_p_q/mq * R if gamma_p is very low
-          Kokkos::parallel_for(
-              Kokkos::TeamVectorRange(team_member, np), [&](const int ip) {
-                s_gamma_p_q(ip) =
-                    MDFT::Impl::prevent_underflow(s_gamma_p_q(ip), epsilon);
-                s_gamma_p_mq(ip) =
-                    MDFT::Impl::prevent_underflow(s_gamma_p_mq(ip), epsilon);
-              });
-
+          // pay attention to the special case(s) where q=-q
+          // this should only happen for ix=1 and ix=nx/2
+          bool q_eq_mq = (ix_mq == ix && iy_mq == iy && iz_mq == iz);
           bool is_singular_mid_k =
               q_eq_mq && (ix == nx / 2 && iy == ny / 2 && iz == nz / 2);
 
           Kokkos::parallel_for(
               Kokkos::TeamThreadRange(team_member, np), [&](const int ip) {
+                // prevent underflow in gamma_p_q/mq * R if gamma_p is very low
+                s_gamma_p_q(ip) =
+                    MDFT::Impl::prevent_underflow(s_gamma_p_q(ip), epsilon);
+                s_gamma_p_mq(ip) =
+                    MDFT::Impl::prevent_underflow(s_gamma_p_mq(ip), epsilon);
                 auto im   = p_to_m(ip);
                 auto imup = p_to_mup(ip);
-                auto imu2 = p_to_mu(ip);
+                auto imu2 = p_to_mu2(ip);
 
                 ComplexType sum_deltarho_p_q(0.0, 0.0),
                     sum_deltarho_p_mq(0.0, 0.0);
                 for (int ikhi = -im; ikhi <= im; ikhi++) {
                   sum_deltarho_p_q +=
-                      s_gamma_p_q(p_map(im, ikhi, imu2)) *
+                      s_gamma_p_q(p_map(im, ikhi + mmax, imu2)) *
                       Kokkos::conj(s_R(im, imup + mmax, ikhi + mmax));
                   sum_deltarho_p_mq +=
-                      s_gamma_p_mq(p_map(im, ikhi, imu2)) *
+                      s_gamma_p_mq(p_map(im, ikhi + mmax, imu2)) *
                       Kokkos::conj(s_R(im, imup + mmax, -ikhi + mmax));
                 }
 
@@ -521,8 +519,8 @@ class Convolution {
                 s_deltarho_p_q(ip)  = sum_deltarho_p_q;
                 s_deltarho_p_mq(ip) = sum_deltarho_p_mq * Kokkos::pow(-1.0, im);
 
-                deltarho_p(ip, iz, iy, ix) = s_deltarho_p_q(ip);
-                deltarho_p(ip, iz_mq, iy_mq, ix_mq) =
+                deltarho_p(ip, ix, iy, iz) = s_deltarho_p_q(ip);
+                deltarho_p(ip, ix_mq, iy_mq, iz_mq) =
                     is_singular_mid_k ? Kokkos::conj(s_deltarho_p_mq(ip))
                                       : s_deltarho_p_mq(ip);
               });
