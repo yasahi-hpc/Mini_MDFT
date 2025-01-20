@@ -105,7 +105,7 @@ TYPED_TEST(TestLucData, deltaAbscissa) {
 TYPED_TEST(TestLucData, readLuc) {
   using float_type = typename TestFixture::float_type;
   int mmax = 5, molrotsymorder = 2, np = 252, nq = 191;
-  double qmaxwanted = 11.6083159310990, dq = 6.135923151542601e-2;
+  double qmaxwanted         = 11.6083159310990;
   float_type tmp_qmaxwanted = static_cast<float_type>(qmaxwanted);
   MDFT::AngularGrid<execution_space, float_type> angular_grid(mmax,
                                                               molrotsymorder);

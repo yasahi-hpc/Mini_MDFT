@@ -174,20 +174,18 @@ struct AngularGrid {
     Kokkos::deep_copy(m_wphiofnphi, h_wphiofnphi);
     Kokkos::deep_copy(m_wpsiofnpsi, h_wpsiofnpsi);
 
-    auto h_psiofnpsi = Kokkos::create_mirror_view(m_psiofnpsi);
-    auto h_phiofnphi = Kokkos::create_mirror_view(m_phiofnphi);
-    MDFT::Impl::uniform_mesh(host_space(), h_psiofnpsi, m_dpsi);
-    MDFT::Impl::uniform_mesh(host_space(), h_phiofnphi, m_dphi);
-    Kokkos::deep_copy(m_psiofnpsi, h_psiofnpsi);
-    Kokkos::deep_copy(m_phiofnphi, h_phiofnphi);
+    MDFT::Impl::uniform_mesh(m_psiofnpsi, m_dpsi);
+    MDFT::Impl::uniform_mesh(m_phiofnphi, m_dphi);
 
     // This function works on device views
     MDFT::Impl::gauss_legendre(m_thetaofntheta, m_wthetaofntheta);
 
-    auto h_thetaofntheta = Kokkos::create_mirror_view(m_thetaofntheta);
-    Kokkos::Experimental::for_each(
-        "acos", host_space(), h_thetaofntheta,
-        KOKKOS_LAMBDA(ScalarType & theta) { theta = Kokkos::acos(theta); });
+    auto h_thetaofntheta = Kokkos::create_mirror_view_and_copy(
+        Kokkos::HostSpace(), m_thetaofntheta);
+    for (int itheta = 0; itheta < m_ntheta; itheta++) {
+      h_thetaofntheta(itheta) = Kokkos::acos(h_thetaofntheta(itheta));
+    }
+
     Kokkos::deep_copy(m_thetaofntheta, h_thetaofntheta);
 
     m_indo = View3DType("indo", m_ntheta, m_nphi, m_npsi);
@@ -202,6 +200,10 @@ struct AngularGrid {
     range_type range(point_type{0, 0, 0}, point_type{m_npsi, m_nphi, m_ntheta},
                      tile_type{4, 4, 4});
 
+    auto h_psiofnpsi =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), m_psiofnpsi);
+    auto h_phiofnphi =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), m_phiofnphi);
     auto h_theta          = Kokkos::create_mirror_view(m_theta);
     auto h_phi            = Kokkos::create_mirror_view(m_phi);
     auto h_psi            = Kokkos::create_mirror_view(m_psi);
@@ -215,22 +217,25 @@ struct AngularGrid {
         Kokkos::HostSpace(), m_wthetaofntheta);
 
     auto quadrature_norm = m_quadrature_norm;
-    auto npsi            = m_npsi;
-    auto nphi            = m_nphi;
 
-    Kokkos::parallel_for(
-        "init_angles", range, KOKKOS_LAMBDA(int ipsi, int iphi, int itheta) {
-          int io                   = ipsi + iphi * npsi + itheta * npsi * nphi;
-          h_theta(io)              = h_thetaofntheta(itheta);
-          h_phi(io)                = h_phiofnphi(iphi);
-          h_psi(io)                = h_psiofnpsi(ipsi);
-          h_io(itheta, iphi, ipsi) = io;
+    int io = 0;
+    for (int itheta = 0; itheta < m_ntheta; itheta++) {
+      for (int iphi = 0; iphi < m_nphi; iphi++) {
+        for (int ipsi = 0; ipsi < m_npsi; ipsi++) {
+          h_theta(io)                = h_thetaofntheta(itheta);
+          h_phi(io)                  = h_phiofnphi(iphi);
+          h_psi(io)                  = h_psiofnpsi(ipsi);
+          h_io(itheta, iphi, ipsi)   = io;
           h_indo(itheta, iphi, ipsi) = io;
           h_wtheta(io)               = h_wthetaofntheta(itheta);
           h_wphi(io)                 = h_wphiofnphi(iphi);
           h_wpsi(io)                 = h_wpsiofnpsi(ipsi);
           h_w(io) = h_wtheta(io) * h_wphi(io) * h_wpsi(io) * quadrature_norm;
-        });
+          io++;
+        }
+      }
+    }
+
     Kokkos::deep_copy(m_theta, h_theta);
     Kokkos::deep_copy(m_phi, h_phi);
     Kokkos::deep_copy(m_psi, h_psi);
@@ -280,9 +285,10 @@ struct AngularGrid {
     auto h_rotzy = Kokkos::create_mirror_view(m_rotzy);
     auto h_rotzz = Kokkos::create_mirror_view(m_rotzz);
 
-    Kokkos::parallel_for(
-        "init_rotations", range, KOKKOS_LAMBDA(int ipsi, int iphi, int itheta) {
-          int io         = ipsi + iphi * npsi + itheta * npsi * nphi;
+    io = 0;
+    for (int itheta = 0; itheta < m_ntheta; itheta++) {
+      for (int iphi = 0; iphi < m_nphi; iphi++) {
+        for (int ipsi = 0; ipsi < m_npsi; ipsi++) {
           auto cos_theta = Kokkos::cos(h_theta(io));
           auto sin_theta = Kokkos::sin(h_theta(io));
           auto cos_phi   = Kokkos::cos(h_phi(io));
@@ -304,7 +310,11 @@ struct AngularGrid {
           h_rotzx(io) = -sin_theta * cos_psi;
           h_rotzy(io) = sin_theta * sin_psi;
           h_rotzz(io) = cos_theta;
-        });
+          io++;
+        }
+      }
+    }
+
     Kokkos::deep_copy(m_OMx, h_OMx);
     Kokkos::deep_copy(m_OMy, h_OMy);
     Kokkos::deep_copy(m_OMz, h_OMz);

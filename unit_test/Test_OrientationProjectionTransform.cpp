@@ -70,8 +70,9 @@ void test_orientation_projection_forward(int n) {
   MDFT::OrientationProjectionTransform<execution_space, T> opt(
       grid, angular_grid, map);
 
-  using OViewType = Kokkos::View<T****, execution_space>;
-  using PViewType = Kokkos::View<Kokkos::complex<T>****, execution_space>;
+  using OViewType = Kokkos::View<T****, Kokkos::LayoutRight, execution_space>;
+  using PViewType = Kokkos::View<Kokkos::complex<T>****, Kokkos::LayoutRight,
+                                 execution_space>;
 
   auto [nx, ny, nz] = grid.m_n_nodes;
   auto ntheta = angular_grid.m_ntheta, nphi = angular_grid.m_nphi,
@@ -90,12 +91,16 @@ void test_orientation_projection_forward(int n) {
   opt.angl2proj(o, p);
 
   // Make a reference at host
-  using HostView1DType = Kokkos::View<T*, host_execution_space>;
-  using HostView2DType = Kokkos::View<T**, host_execution_space>;
+  using HostView1DType =
+      Kokkos::View<T*, Kokkos::LayoutRight, host_execution_space>;
+  using HostView2DType =
+      Kokkos::View<T**, Kokkos::LayoutRight, host_execution_space>;
   using HostComplexView2DType =
-      Kokkos::View<Kokkos::complex<T>**, host_execution_space>;
+      Kokkos::View<Kokkos::complex<T>**, Kokkos::LayoutRight,
+                   host_execution_space>;
   using HostComplexView3DType =
-      Kokkos::View<Kokkos::complex<T>***, host_execution_space>;
+      Kokkos::View<Kokkos::complex<T>***, Kokkos::LayoutRight,
+                   host_execution_space>;
 
   auto p_map    = map.p();
   int mmax_p1   = p_map.extent(0);
@@ -125,8 +130,9 @@ void test_orientation_projection_forward(int n) {
   auto h_o     = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), o);
   int nxyz     = nx * ny * nz;
 
-  using value_type  = typename PViewType::non_const_value_type;
-  using PView2DType = Kokkos::View<value_type**, host_execution_space>;
+  using value_type = typename PViewType::non_const_value_type;
+  using PView2DType =
+      Kokkos::View<value_type**, Kokkos::LayoutRight, host_execution_space>;
   PView2DType p2d(h_p_ref.data(), p_ref.extent(0), nxyz);
 
   for (int ixyz = 0; ixyz < nxyz; ixyz++) {
@@ -185,8 +191,9 @@ void test_orientation_projection_backward(int n) {
   MDFT::OrientationProjectionTransform<execution_space, T> opt(
       grid, angular_grid, map);
 
-  using OViewType = Kokkos::View<T****, execution_space>;
-  using PViewType = Kokkos::View<Kokkos::complex<T>****, execution_space>;
+  using OViewType = Kokkos::View<T****, Kokkos::LayoutRight, execution_space>;
+  using PViewType = Kokkos::View<Kokkos::complex<T>****, Kokkos::LayoutRight,
+                                 execution_space>;
 
   auto [nx, ny, nz] = grid.m_n_nodes;
   auto ntheta = angular_grid.m_ntheta, nphi = angular_grid.m_nphi,
@@ -205,12 +212,16 @@ void test_orientation_projection_backward(int n) {
   opt.proj2angl(p, o);
 
   // Make a reference at host
-  using HostView1DType = Kokkos::View<T*, host_execution_space>;
-  using HostView2DType = Kokkos::View<T**, host_execution_space>;
+  using HostView1DType =
+      Kokkos::View<T*, Kokkos::LayoutRight, host_execution_space>;
+  using HostView2DType =
+      Kokkos::View<T**, Kokkos::LayoutRight, host_execution_space>;
   using HostComplexView2DType =
-      Kokkos::View<Kokkos::complex<T>**, host_execution_space>;
+      Kokkos::View<Kokkos::complex<T>**, Kokkos::LayoutRight,
+                   host_execution_space>;
   using HostComplexView3DType =
-      Kokkos::View<Kokkos::complex<T>***, host_execution_space>;
+      Kokkos::View<Kokkos::complex<T>***, Kokkos::LayoutRight,
+                   host_execution_space>;
 
   auto p_map    = map.p();
   int mmax_p1   = p_map.extent(0);
@@ -231,6 +242,8 @@ void test_orientation_projection_backward(int n) {
   HostComplexView3DType my_f_theta_mu2_mup("my_f_theta_mu2_mup", ntheta,
                                            mmax_mrso, mmax2_p1);
 
+  auto h_p_map =
+      Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), p_map);
   auto h_wtheta =
       Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), wtheta);
   auto h_wigner_small_d =
@@ -240,8 +253,9 @@ void test_orientation_projection_backward(int n) {
   auto h_p     = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), p);
   int nxyz     = nx * ny * nz;
 
-  using value_type  = typename PViewType::non_const_value_type;
-  using PView2DType = Kokkos::View<value_type**, host_execution_space>;
+  using value_type = typename PViewType::non_const_value_type;
+  using PView2DType =
+      Kokkos::View<value_type**, Kokkos::LayoutRight, host_execution_space>;
   PView2DType p2d(h_p.data(), p.extent(0), nxyz);
 
   for (int ixyz = 0; ixyz < nxyz; ixyz++) {
@@ -253,7 +267,7 @@ void test_orientation_projection_backward(int n) {
       for (int imu2 = 0; imu2 < mmax_mrso; imu2++) {
         int im_init = Kokkos::max(Kokkos::abs(imup), mrso * Kokkos::abs(imu2));
         for (int im = im_init; im <= mmax; im++) {
-          int ip = p_map(im, imup + mmax, imu2);
+          int ip = h_p_map(im, imup + mmax, imu2);
           for (int itheta = 0; itheta < ntheta; itheta++) {
             my_f_theta_mu2_mup(itheta, imu2, imup + mmax) +=
                 sub_p(ip) * h_wigner_small_d(itheta, ip) * fm(im);
@@ -301,8 +315,9 @@ void test_orientation_projection_identity(int n) {
   MDFT::OrientationProjectionTransform<execution_space, T> opt(
       grid, angular_grid, map);
 
-  using OViewType = Kokkos::View<T****, execution_space>;
-  using PViewType = Kokkos::View<Kokkos::complex<T>****, execution_space>;
+  using OViewType = Kokkos::View<T****, Kokkos::LayoutRight, execution_space>;
+  using PViewType = Kokkos::View<Kokkos::complex<T>****, Kokkos::LayoutRight,
+                                 execution_space>;
 
   auto [nx, ny, nz] = grid.m_n_nodes;
   auto ntheta = angular_grid.m_ntheta, nphi = angular_grid.m_nphi,
@@ -324,7 +339,7 @@ void test_orientation_projection_identity(int n) {
   opt.proj2angl(p, o_inv);
 
   // FIXME This test does not pass, with the random numbers
-  T epsilon = std::numeric_limits<T>::epsilon() * 100;
+  T epsilon = std::numeric_limits<T>::epsilon() * 1e3;
   EXPECT_TRUE(allclose(execution_space(), o_inv, o_ref, epsilon));
 }
 

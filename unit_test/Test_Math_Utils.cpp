@@ -43,7 +43,7 @@ template <typename T>
 void test_uniform_mesh(int n, T dx) {
   using ViewType = Kokkos::View<T*, execution_space>;
   ViewType x("x", n), x_ref("x_ref", n);
-  MDFT::Impl::uniform_mesh(execution_space(), x, dx);
+  MDFT::Impl::uniform_mesh(x, dx);
 
   // Reference
   auto h_x_ref = Kokkos::create_mirror_view(x_ref);

@@ -25,7 +25,7 @@ template <typename T>
 concept KokkosExecutionSpace = Kokkos::is_execution_space_v<T>;
 
 template <typename ExecutionSpace, typename ViewType>
-concept KokkosViewAccesible = requires(ExecutionSpace /*e*/, ViewType /*v*/) {
+concept KokkosViewAccesible = requires(ExecutionSpace e, ViewType v) {
   [] {
     static_assert(Kokkos::SpaceAccessibility<
                   ExecutionSpace, typename ViewType::memory_space>::accessible);
