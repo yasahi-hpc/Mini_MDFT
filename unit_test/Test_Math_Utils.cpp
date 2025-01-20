@@ -300,6 +300,13 @@ void test_inv_index(T n) {
     int result = MDFT::Impl::inv_index(i, n);
     EXPECT_TRUE(result >= 0 && result < n);
   }
+
+  // if n is even (used in MDFT)
+  for (T i = 0; i < n; ++i) {
+    int result     = MDFT::Impl::inv_index(i, n);
+    int result_ref = i == 0 ? 0 : n - i;
+    EXPECT_EQ(result, result_ref);
+  }
 }
 
 TYPED_TEST(TestMathUtils, GaussLegendre) {

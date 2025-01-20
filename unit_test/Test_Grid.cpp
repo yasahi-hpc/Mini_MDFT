@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include "MDFT_System.hpp"
 #include "MDFT_Grid.hpp"
+#include "MDFT_Math_Utils.hpp"
 
 namespace {
 
@@ -112,6 +113,58 @@ TYPED_TEST(TestSpatialGrid, Initialization) {
 
   EXPECT_EQ(grid.m_v, ref_v);
   EXPECT_EQ(grid.m_dv, ref_dv);
+}
+
+TYPED_TEST(TestSpatialGrid, WavenumberSymmetry) {
+  using float_type        = typename TestFixture::float_type;
+  using scalar_array_type = typename TestFixture::scalar_array_type;
+  using int_array_type    = typename TestFixture::int_array_type;
+
+  int nx = 10, ny = 10, nz = 10;
+  float_type lx = 1.5;
+  MDFT::SpatialGrid<execution_space, float_type> grid(
+      int_array_type{nx, ny, nz}, scalar_array_type{lx, lx, lx});
+
+  auto h_kx =
+      Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), grid.m_kx);
+  auto h_ky =
+      Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), grid.m_ky);
+  auto h_kz =
+      Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), grid.m_kz);
+
+  auto epsilon = std::numeric_limits<float_type>::epsilon() * 1e3;
+  for (int ix = 0; ix < nx; ++ix) {
+    int ix_mq = MDFT::Impl::inv_index(ix, nx);
+
+    // Hermitian symmetry
+    if (ix == nx / 2) {
+      EXPECT_LT(Kokkos::abs(h_kx(ix_mq) - h_kx(ix)), epsilon);
+    } else {
+      EXPECT_LT(Kokkos::abs(h_kx(ix_mq) + h_kx(ix)), epsilon);
+    }
+  }
+
+  for (int iy = 0; iy < ny; ++iy) {
+    int iy_mq = MDFT::Impl::inv_index(iy, ny);
+
+    // Hermitian symmetry
+    if (iy == ny / 2) {
+      EXPECT_LT(Kokkos::abs(h_ky(iy_mq) - h_ky(iy)), epsilon);
+    } else {
+      EXPECT_LT(Kokkos::abs(h_ky(iy_mq) + h_ky(iy)), epsilon);
+    }
+  }
+
+  for (int iz = 0; iz < nz; ++iz) {
+    int iz_mq = MDFT::Impl::inv_index(iz, nz);
+
+    // Hermitian symmetry
+    if (iz == nz / 2) {
+      EXPECT_LT(Kokkos::abs(h_kz(iz_mq) - h_kz(iz)), epsilon);
+    } else {
+      EXPECT_LT(Kokkos::abs(h_kz(iz_mq) + h_kz(iz)), epsilon);
+    }
+  }
 }
 
 TYPED_TEST(TestAngularGrid, NegativeMeshSize) {
