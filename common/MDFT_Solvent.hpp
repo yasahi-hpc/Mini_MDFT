@@ -568,11 +568,9 @@ struct Solvents {
 // \param delta_rho [out] 6D View of delta_rho, shape(nx, ny, nz, ntheta, nphi,
 // npsi)
 // \param rho0 [in] Reference density
-// template <KokkosExecutionSpace ExecutionSpace, KokkosView ViewType,
-//          typename ScalarType>
-//  requires KokkosViewAccesible<ExecutionSpace, ViewType>
 template <KokkosExecutionSpace ExecutionSpace, KokkosView ViewType,
           typename ScalarType>
+  requires KokkosViewAccesible<ExecutionSpace, ViewType>
 void get_delta_rho(const ExecutionSpace& exec_space, const ViewType& xi,
                    const ViewType& delta_rho, const ScalarType rho0) {
   const std::size_t n = xi.size();
@@ -608,12 +606,10 @@ void get_delta_rho(const ExecutionSpace& exec_space, const ViewType& xi,
 // \param ff [out] density fluctuation
 // \param rho0 [in] Reference density
 // \param prefactor [in] Coefficient prefactor
-// template <KokkosExecutionSpace ExecutionSpace, KokkosView View1DType,
-//          KokkosView View4DType, typename ScalarType>
-//  requires KokkosViewAccesible<ExecutionSpace, View1DType> &&
-//           KokkosViewAccesible<ExecutionSpace, View4DType>
 template <KokkosExecutionSpace ExecutionSpace, KokkosView View1DType,
           KokkosView View4DType, typename ScalarType>
+  requires KokkosViewAccesible<ExecutionSpace, View1DType> &&
+           KokkosViewAccesible<ExecutionSpace, View4DType>
 void get_delta_f(const ExecutionSpace& exec_space, const View4DType& xi,
                  const View4DType& vexc, const View1DType& w,
                  const View4DType& delta_f, ScalarType& ff,
@@ -644,7 +640,7 @@ void get_delta_f(const ExecutionSpace& exec_space, const View4DType& xi,
         const auto ixyz = team_member.league_rank();
         ValueType sum   = 0;
         Kokkos::parallel_reduce(
-            Kokkos::ThreadVectorRange(team_member, no),
+            Kokkos::TeamThreadRange(team_member, no),
             [&](const int io, ValueType& lsum) {
               lsum += vexc_2d(ixyz, io) * w(io) *
                       (xi_2d(ixyz, io) * xi_2d(ixyz, io) - 1.0);
