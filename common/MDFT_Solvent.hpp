@@ -566,7 +566,8 @@ struct Solvents {
 // \param exec_space [in] Execution space instance
 // \param xi [in] 4D View of xi, shape(nx, ny, nz, ntheta*nphi*npsi)
 // \param delta_rho [out] 4D View of delta_rho, shape(nx, ny, nz,
-// ntheta*nphi*npsi) \param rho0 [in] Reference density
+// ntheta*nphi*npsi)
+// \param rho0 [in] Reference density
 template <KokkosExecutionSpace ExecutionSpace, KokkosView ViewType,
           typename ScalarType>
   requires KokkosViewAccesible<ExecutionSpace, ViewType>
