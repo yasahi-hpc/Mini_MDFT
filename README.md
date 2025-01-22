@@ -16,20 +16,22 @@ To use Mini-MDFT, we need the followings:
 * `CMake 3.22+`
 * `Kokkos 4.4+`
 * `gcc 11.0.0+` (CPUs, c++20 support is necessary)
+* `nvcc 11.0.0+` (NVIDIA GPUs)
 
 ### Compile and run
 
-For compilation, we basically rely on the CMake options for Kokkos. For example, the compile options for CPU is as follows.
+For compilation, we basically rely on the CMake options for Kokkos. For example, the compile options for A100 GPU is as follows.
 ```bash
 cmake -B build \
       -DCMAKE_CXX_COMPILER=g++ \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_CXX_STANDARD=20 \
+      -DKokkos_ENABLE_CUDA=ON \
+      -DKokkos_ARCH_AMPERE80=ON \
       -DMini_MDFT_ENABLE_TESTS=ON
 cmake --build build -j 8
 ```
 
-For the moment, we only have some unit_tests and do not have main program yet.
 To run the tests, please run the follwoing command.
 ```bash
 cd build
@@ -45,3 +47,8 @@ ctest --output-on-failure
 5. Making a PR for each modification and ask for a review if you wish
 6. Formatting your files by `clang-format -i <file_you_have_modified>`
 7. Feel free to use AI tools to convert Fortran code into C++, adding unit-test and docstrings, etc
+
+## LICENCE
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Mini-MDFT is distributed under either the MIT license.

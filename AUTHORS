@@ -1,0 +1,39 @@
+Multiple people have contributed to Mini-MDFT. To show our appreciation for their
+public spirit, we list here in alphabetical order a condensed list of their
+contributions.
+
+Yuuichi Asahi - CEA (yuuichi.asahi(at)cea.fr)
+* Maintainer
+* Kokkos implementation
+* CI/CD
+* Documentation
+
+Daniel Borgis
+* initial developer of the code
+
+Maximilien Levesque
+* initial developer of the code
+
+Guillaume Jeanmairet
+* as a PhD student (2011-2014), worked on the density-polarization functional for water.
+
+Ljiljana Stojanovitch
+* as a postdoctoral researcher (2013-2014), worked on reference MD, PMFs and hydrophobicity.
+
+Volodymyr Sergiievskyi
+* as a postdoctoral researcher (2013-2014), worked on pressure corrections and hard sphere bridges.
+
+Lu Ding
+* as a PhD student (2013-2017), worked on the resolution of the molecular Ornstein-Zernike equations using fast spherical harmonics transforms in the local frame.
+
+Cédric Gageat
+* as a PhD student (2015-), works on core developments and biomolecular applications.
+
+Yacine Ould-Rouis
+* as an engineer in high performance computing (2017-), works on openmp implementation and vectorization.
+
+José François
+* for a M2 intern (2017), on the study of solute databases like Freesolv to construct an awesome MDFT database.
+
+Sohvi Luukkonen
+* for a M2 intern (2017-), on the building of a bridge function(al) using machine learning.
