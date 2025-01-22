@@ -1,0 +1,158 @@
+# SPDX-FileCopyrightText: (C) The Mini-MDFT development team, see COPYRIGHT.md file
+#
+# SPDX-License-Identifier: MIT
+
+# Build and test Mini-MDFT using Docker on top of the kokkos-fft main.
+
+name: Nightly tests
+
+on:
+  schedule:
+    - cron: "0 1 * * 1-5" # every weekday at 1am
+
+env:
+  # Force the use of BuildKit for Docker
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  # build project
+  build:
+    # only run on original repo
+    if: github.repository == 'yasahi-hpc/mini-mdft'
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        backend:
+          - name: clang-tidy
+            image: clang
+            compiler:
+              cxx: clang++
+            cmake_flags:
+              kokkos: -DKokkos_ENABLE_SERIAL=ON
+              kokkos_fft:
+              mini_mdft: -DCMAKE_CXX_FLAGS="-Wall -Wextra" -DCMAKE_COMPILE_WARNING_AS_ERROR=ON -DCMAKE_CXX_CLANG_TIDY="clang-tidy;-warnings-as-errors=*"
+          - name: openmp
+            image: gcc
+            compiler:
+              cxx: g++
+            cmake_flags:
+              kokkos: -DKokkos_ENABLE_OPENMP=ON
+              kokkos_fft:
+              mini_mdft:
+          - name: threads
+            image: gcc
+            compiler:
+              cxx: g++
+            cmake_flags:
+              kokkos: -DKokkos_ENABLE_THREADS=ON -DKokkos_ENABLE_SERIAL=ON
+              kokkos_fft:
+              mini_mdft:
+          - name: serial
+            image: gcc
+            compiler:
+              cxx: g++
+            cmake_flags:
+              kokkos: -DKokkos_ENABLE_SERIAL=ON
+              kokkos_fft:
+              mini_mdft:
+          - name: cuda
+            image: nvcc
+            compiler:
+              cxx: g++
+            cmake_flags:
+              kokkos: -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH_AMPERE80=ON
+              kokkos_fft: -DKokkosFFT_ENABLE_HOST_AND_DEVICE=ON
+              mini_mdft: 
+          - name: hip
+            image: rocm
+            compiler:
+              cxx: hipcc
+            cmake_flags:
+              kokkos: -DKokkos_ENABLE_HIP=ON -DKokkos_ARCH_VEGA90A=ON
+              kokkos_fft: -DKokkosFFT_ENABLE_HOST_AND_DEVICE=ON -DKokkosFFT_ENABLE_ROCFFT=ON
+              mini_mdft: 
+          - name: sycl
+            image: intel
+            compiler:
+              cxx: icpx
+            cmake_flags:
+              # building for Intel PVC was unsuccessful without the proper
+              # device, so for now, we simply generate generic Intel GPU code
+              kokkos: -DKokkos_ENABLE_SYCL=ON -DKokkos_ARCH_INTEL_GEN=ON
+              kokkos_fft: -DKokkosFFT_ENABLE_HOST_AND_DEVICE=ON
+              mini_mdft:
+
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          large-packages: false
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Checkout Kokkos devel branch
+        uses: actions/checkout@v4
+        with:
+          repository: kokkos/kokkos
+          path: kokkos
+
+      - name: Checkout kokkos-fft main branch
+        uses: actions/checkout@v4
+        with:
+          repository: kokkos/kokkos-fft
+          path: kokkos-fft
+
+      - name: Configure Kokkos, build and install Kokkos as library
+        run: |
+          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_main:latest \
+            cmake -B build_kokkos \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -DCMAKE_INSTALL_PREFIX=/work/install \
+            -DCMAKE_CXX_COMPILER=${{ matrix.backend.compiler.cxx }} \
+            -DCMAKE_CXX_STANDARD=20 \
+            ${{ matrix.backend.cmake_flags.kokkos }} \
+            kokkos
+          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_main:latest \
+            cmake --build build_kokkos -j $(( $(nproc) * 2 + 1 ))
+          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_main:latest \
+            cmake --install build_kokkos
+
+      - name: Configure, build and install kokkos-fft as library
+        run: |
+          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
+            cmake -B build_kokkos_fft \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -DCMAKE_INSTALL_PREFIX=/work/install\
+            -DCMAKE_PREFIX_PATH=/work/install \
+            -DCMAKE_CXX_COMPILER=${{ matrix.backend.compiler.cxx }} \
+            -DCMAKE_CXX_STANDARD=20 \
+            ${{ matrix.backend.cmake_flags.kokkos_fft }} \
+            kokkos-fft
+          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
+            cmake --build build_kokkos_fft -j $(( $(nproc) * 2 + 1 ))
+          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
+            cmake --install build_kokkos_fft
+
+      - name: Configure and build Mini-MDFT
+        run: |
+          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
+            cmake -B build_installed \
+            -DCMAKE_BUILD_TYPE=${{ matrix.backend.cmake_build_type }} \
+            -DCMAKE_PREFIX_PATH=/work/install \
+            -DCMAKE_CXX_COMPILER=${{ matrix.backend.compiler.cxx }} \
+            -DCMAKE_CXX_STANDARD=20 \
+            ${{ matrix.backend.cmake_flags.mini_mdft }}
+          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
+            cmake --build build_installed -j $(( $(nproc) * 2 + 1 ))
+
+      - name: Run OpenMP/Threads/Serial tests within gcc Docker image
+        run: |
+          docker run -v ${{github.workspace}}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
+          ctest --test-dir build/unit_test --output-on-failure
+        if: ${{ matrix.backend.image == 'gcc' }}
