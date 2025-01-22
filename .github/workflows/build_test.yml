@@ -166,10 +166,10 @@ jobs:
         run: |
           docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
             cmake -B build_kokkos \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             -DCMAKE_INSTALL_PREFIX=/work/install \
             -DCMAKE_CXX_COMPILER=${{ matrix.backend.compiler.cxx }} \
             -DCMAKE_CXX_STANDARD=20 \
-            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             ${{ matrix.backend.cmake_flags.kokkos }} \
             tpls/kokkos
           docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
@@ -181,13 +181,13 @@ jobs:
         run: |
           docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
             cmake -B build_kokkos_fft \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             -DCMAKE_INSTALL_PREFIX=/work/install\
             -DCMAKE_PREFIX_PATH=/work/install \
-            -DCMAKE_BUILD_TYPE=${{ matrix.backend.cmake_build_type }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.backend.compiler.cxx }} \
             -DCMAKE_CXX_STANDARD=20 \
-            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-            ${{ matrix.backend.cmake_flags.kokkos_fft }} 
+            ${{ matrix.backend.cmake_flags.kokkos_fft }} \
+            tpls/kokkos-fft
           docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
             cmake --build build_kokkos_fft -j $(( $(nproc) * 2 + 1 ))
           docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
