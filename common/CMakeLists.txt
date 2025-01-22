@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (C) The Mini-MDFT development team, see COPYRIGHT.md file
+#
+# SPDX-License-Identifier: MIT
+
 add_library(Mini-MDFT-Common INTERFACE)
 
 target_link_libraries(Mini-MDFT-Common
