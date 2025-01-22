@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-ARG BASE=intel/oneapi-basekit:2024.0.1-devel-ubuntu20.04
+ARG BASE=intel/oneapi-basekit:2025.0.1-0-devel-ubuntu24.04
 FROM $BASE
 
 RUN apt-get update && apt-get install -y \
@@ -11,7 +11,6 @@ RUN apt-get update && apt-get install -y \
         git \
         ccache \
         libfftw3-dev \
-        $ADDITIONAL_PACKAGES \
         && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

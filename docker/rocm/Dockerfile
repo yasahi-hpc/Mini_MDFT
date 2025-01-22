@@ -14,7 +14,6 @@ RUN apt-get update && apt-get install -y \
         hipfft \
         rocfft \
         libfftw3-dev \
-        $ADDITIONAL_PACKAGES \
         && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
