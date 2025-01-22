@@ -54,7 +54,8 @@ ctest --output-on-failure
 6. Formatting your files by `clang-format -i <file_you_have_modified>`
 7. Feel free to use AI tools to convert Fortran code into C++, adding unit-test and docstrings, etc
 
-## LICENCE
+## LICENSE
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Mini-MDFT is distributed under either the MIT license.
+Mini-MDFT is distributed under the MIT license.
