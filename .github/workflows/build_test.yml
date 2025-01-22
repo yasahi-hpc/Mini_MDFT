@@ -150,11 +150,6 @@ jobs:
           name: tests_${{ matrix.backend.name }}
           path: tests_${{ matrix.backend.name }}.tar
 
-      - name: Test
-        needs:
-          - check_docker_files
-          - build
-
   test:
     runs-on: ${{ matrix.backend.runner }}
     continue-on-error: ${{ matrix.backend.unstable }}
