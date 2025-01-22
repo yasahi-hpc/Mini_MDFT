@@ -74,3 +74,6 @@ jobs:
 
       - name: Push Docker image
         run: docker push ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.image.name }}_${{ inputs.image_suffix }}:${{ inputs.image_tag }}
+        permissions:
+          contents: read
+          packages: write
