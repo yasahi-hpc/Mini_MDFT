@@ -6,14 +6,15 @@ SPDX-License-Identifier: MIT
 
 # Mini-MDFT
 
-[![CI](https://github.com/yasahi-hpc/Mini_MDFT/actions/workflows/ci.yml/badge.svg)](https://github.com/yasahi-hpc/Mini_MDFT/actions/workflows/ci.yml)
+[![CI](https://github.com/yasahi-hpc/Mini_MDFT/actions/workflows/build_test.yml/badge.svg)](https://github.com/yasahi-hpc/Mini_MDFT/actions/workflows/build_test.yml)
+[![Nightly](https://github.com/yasahi-hpc/Mini_MDFT/actions/workflows/nightly.yml/badge.svg)](https://github.com/yasahi-hpc/Mini_MDFT/actions/workflows/nightly.yml)
 
 The Molecular Density Functional Theory is a collaborative work led by Daniel Borgis and Maximilien Levesque:
 
 ## Using Mini-MDFT
 First of all, you need to clone this repo.
 ```bash
-git clone --recursive git@github.com:yasahi-hpc/Mini_MDFT.git
+git clone --recursive https://github.com/yasahi-hpc/Mini_MDFT.git
 ```
 
 ### Prerequisites
@@ -22,7 +23,9 @@ To use Mini-MDFT, we need the followings:
 * `CMake 3.22+`
 * `Kokkos 4.4+`
 * `gcc 11.0.0+` (CPUs, c++20 support is necessary)
+* `IntelLLVM 2025.0.0+` (CPUs, Intel GPUs)
 * `nvcc 11.0.0+` (NVIDIA GPUs)
+* `rocm 5.6.0+` (AMD GPUs)
 
 ### Compile and run
 
