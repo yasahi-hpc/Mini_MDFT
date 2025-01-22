@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (C) The Mini-MDFT development team, see COPYRIGHT.md file
+#
+# SPDX-License-Identifier: MIT
+
 cmake_minimum_required(VERSION 3.22)
 project(
     Mini_MDFT

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: (C) The Mini-MDFT development team, see COPYRIGHT.md file
+
+SPDX-License-Identifier: MIT
+-->
+
 # Mini-MDFT
 
 [![CI](https://github.com/yasahi-hpc/Mini_MDFT/actions/workflows/ci.yml/badge.svg)](https://github.com/yasahi-hpc/Mini_MDFT/actions/workflows/ci.yml)

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (C) The Mini-MDFT development team, see COPYRIGHT.md file
+#
+# SPDX-License-Identifier: MIT
+
 Checks: '-*,modernize-type-traits,modernize-use-using,modernize-use-nullptr,cppcoreguidelines-pro-type-cstyle-cast,bugprone-reserved-identifier'
 FormatStyle: file
 HeaderFileExtensions: ['h','hh','hpp','hxx']

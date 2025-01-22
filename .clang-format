@@ -1,6 +1,11 @@
+# SPDX-FileCopyrightText: (C) The Mini-MDFT development team, see COPYRIGHT.md file
+#
+# SPDX-License-Identifier: MIT
+
 BasedOnStyle: google
 SortIncludes: false
 AlignConsecutiveAssignments: true
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: true
+CommentPragmas: ' SPDX-'
 InsertNewlineAtEOF: true

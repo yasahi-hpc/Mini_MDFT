@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: (C) The Mini-MDFT development team, see COPYRIGHT.md file
+//
+// SPDX-License-Identifier: MIT
+
 #ifndef TEST_UTILS_HPP
 #define TEST_UTILS_HPP
 
