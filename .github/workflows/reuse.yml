@@ -8,9 +8,6 @@ on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - 'data/**'
-      - 'input/**'
 
 jobs:
   test:
@@ -18,5 +15,4 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: REUSE Compliance Check
-      uses: fsfe/reuse-action@v3
-      
+      uses: fsfe/reuse-action@v5

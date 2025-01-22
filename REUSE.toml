@@ -1,0 +1,13 @@
+version = 1
+
+# A simple glob of all files in data
+[[annotations]]
+path = "data*"
+SPDX-FileCopyrightText = "2025 Yuuichi Asahi <yuuichi.asahi(at)cea.fr>"
+SPDX-License-Identifier = "MIT"
+
+# A simple glob of all files in input
+[[annotations]]
+path = "input*"
+SPDX-FileCopyrightText = "2025 Yuuichi Asahi <yuuichi.asahi(at)cea.fr>"
+SPDX-License-Identifier = "MIT"
