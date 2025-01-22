@@ -123,11 +123,10 @@ void test_solvent_init(int n, std::string setting_filename,
 
 template <typename T>
 void test_get_delta_rho() {
-  using ViewType = Kokkos::View<T******, execution_space>;
-  const int n0 = 2, n1 = 2, n2 = 2, n3 = 2, n4 = 2, n5 = 2;
-  ViewType xi("xi", n0, n1, n2, n3, n4, n5),
-      delta_rho("delta_rho", n0, n1, n2, n3, n4, n5),
-      delta_rho_ref("delta_rho_ref", n0, n1, n2, n3, n4, n5);
+  using ViewType = Kokkos::View<T****, execution_space>;
+  const int n0 = 2, n1 = 3, n2 = 4, n3 = 5;
+  ViewType xi("xi", n0, n1, n2, n3), delta_rho("delta_rho", n0, n1, n2, n3),
+      delta_rho_ref("delta_rho_ref", n0, n1, n2, n3);
 
   T rho0 = 0.3;
 
@@ -142,15 +141,9 @@ void test_get_delta_rho() {
     for (int i1 = 0; i1 < n1; i1++) {
       for (int i2 = 0; i2 < n2; i2++) {
         for (int i3 = 0; i3 < n3; i3++) {
-          for (int i4 = 0; i4 < n4; i4++) {
-            for (int i5 = 0; i5 < n5; i5++) {
-              // delta_rho = rho0 * (xi^2 - 1)
-              h_delta_rho_ref(i0, i1, i2, i3, i4, i5) =
-                  rho0 *
-                  (h_xi(i0, i1, i2, i3, i4, i5) * h_xi(i0, i1, i2, i3, i4, i5) -
-                   1.0);
-            }
-          }
+          // delta_rho = rho0 * (xi^2 - 1)
+          h_delta_rho_ref(i0, i1, i2, i3) =
+              rho0 * (h_xi(i0, i1, i2, i3) * h_xi(i0, i1, i2, i3) - 1.0);
         }
       }
     }

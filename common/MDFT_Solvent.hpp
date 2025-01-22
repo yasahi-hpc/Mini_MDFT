@@ -130,7 +130,7 @@ struct Solvent {
   ScalarType m_diameter;
 
   /**
-   * @brief xi**2=rho/rho0 (io, ix, iy, iz)
+   * @brief xi**2=rho/rho0 (nx, ny, nz, no)
    */
   View4DType m_xi;
 
@@ -564,9 +564,9 @@ struct Solvents {
 // \tparam ScalarType Scalar type
 //
 // \param exec_space [in] Execution space instance
-// \param xi [in] 6D View of xi, shape(nx, ny, nz, ntheta, nphi, npsi)
-// \param delta_rho [out] 6D View of delta_rho, shape(nx, ny, nz, ntheta, nphi,
-// npsi)
+// \param xi [in] 4D View of xi, shape(nx, ny, nz, ntheta*nphi*npsi)
+// \param delta_rho [out] 4D View of delta_rho, shape(nx, ny, nz,
+// ntheta*nphi*npsi)
 // \param rho0 [in] Reference density
 template <KokkosExecutionSpace ExecutionSpace, KokkosView ViewType,
           typename ScalarType>
