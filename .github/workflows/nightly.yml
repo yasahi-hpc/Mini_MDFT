@@ -147,9 +147,10 @@ jobs:
             -DCMAKE_PREFIX_PATH=/work/install \
             -DCMAKE_CXX_COMPILER=${{ matrix.backend.compiler.cxx }} \
             -DCMAKE_CXX_STANDARD=20 \
+            -DMini_MDFT_ENABLE_TESTS=ON \
             ${{ matrix.backend.cmake_flags.mini_mdft }}
           docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
-            cmake --build build_installed -j $(( $(nproc) * 2 + 1 ))
+            cmake --build build -j $(( $(nproc) * 2 + 1 ))
 
       - name: Run OpenMP/Threads/Serial tests within gcc Docker image
         run: |
