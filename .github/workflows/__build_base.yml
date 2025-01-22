@@ -39,15 +39,10 @@ jobs:
       matrix:
         image:
           - name: gcc
-            use_singularity: false
           - name: clang
-            use_singularity: false
           - name: nvcc
-            use_singularity: true
           - name: rocm
-            use_singularity: false
           - name: intel
-            use_singularity: false
 
     steps:
       - name: Free Disk Space (Ubuntu)
