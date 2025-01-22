@@ -9,8 +9,8 @@ on:
     branches:
       - main
     paths-ignore:
-      - 'data'
-      - 'input'
+      - 'data/**'
+      - 'input/**'
 
 jobs:
   test:
