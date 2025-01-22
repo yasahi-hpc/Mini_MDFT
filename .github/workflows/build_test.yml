@@ -138,9 +138,11 @@ jobs:
           docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
             cmake -B build \
             -DCMAKE_CXX_COMPILER=${{ matrix.backend.compiler.cxx }} \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             -DCMAKE_CXX_STANDARD=20 \
             -DMini_MDFT_ENABLE_TESTS=ON \
-            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -DMini_MDFT_ENABLE_INTERNAL_KOKKOS=ON \
+            -DMini_MDFT_ENABLE_INTERNAL_KOKKOSFFT=ON \
             ${{ matrix.backend.cmake_flags.kokkos }} \
             ${{ matrix.backend.cmake_flags.kokkos_fft }} \
             ${{ matrix.backend.cmake_flags.mini_mdft }}
