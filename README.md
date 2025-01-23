@@ -37,7 +37,10 @@ cmake -B build \
       -DCMAKE_CXX_STANDARD=20 \
       -DKokkos_ENABLE_CUDA=ON \
       -DKokkos_ARCH_AMPERE80=ON \
-      -DMini_MDFT_ENABLE_TESTS=ON
+      -DKokkosFFT_ENABLE_HOST_AND_DEVICE=ON \
+      -DMini_MDFT_ENABLE_TESTS=ON \
+      -DMini_MDFT_ENABLE_INTERNAL_KOKKOS=ON \
+      -DMini_MDFT_ENABLE_INTERNAL_KOKKOSFFT=ON
 cmake --build build -j 8
 ```
 
@@ -45,6 +48,12 @@ To run the tests, please run the follwoing command.
 ```bash
 cd build
 ctest --output-on-failure
+```
+
+To run the code, please run the following command.
+```bash
+cd build
+./src/mini-MDFT -filename ../input/dft2.json -solute ../input/solute.json -luc_file ../data/dcf/tip3p/tip3p-ck_nonzero_nmax3_ml
 ```
 
 ## Development strategy
