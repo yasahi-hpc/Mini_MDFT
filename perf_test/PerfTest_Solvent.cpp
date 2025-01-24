@@ -123,10 +123,10 @@ BENCHMARK_TEMPLATE_DEFINE_F(TestSolvent, GetDeltaRhoFloat, float)
       n3 = state.range(1);
 
   auto [xi, delta_rho, delta_rho_ref, rho0] =
-      prep_delta_rho<float>(n0, n1, n2, n3);
+      prep_delta_rho<float_type>(n0, n1, n2, n3);
   for (auto _ : state) {
     const auto [time_delta_rho, passed] =
-        test_get_delta_rho<float>(xi, delta_rho, delta_rho_ref, rho0);
+        test_get_delta_rho<float_type>(xi, delta_rho, delta_rho_ref, rho0);
 
     state.SetIterationTime(time_delta_rho);
     state.counters["Passed"] = passed;
@@ -139,10 +139,10 @@ BENCHMARK_TEMPLATE_DEFINE_F(TestSolvent, GetDeltaRhoDouble, double)
       n3 = state.range(1);
 
   auto [xi, delta_rho, delta_rho_ref, rho0] =
-      prep_delta_rho<double>(n0, n1, n2, n3);
+      prep_delta_rho<float_type>(n0, n1, n2, n3);
   for (auto _ : state) {
     const auto [time_delta_rho, passed] =
-        test_get_delta_rho<double>(xi, delta_rho, delta_rho_ref, rho0);
+        test_get_delta_rho<float_type>(xi, delta_rho, delta_rho_ref, rho0);
 
     state.SetIterationTime(time_delta_rho);
     state.counters["Passed"] = passed;
@@ -216,9 +216,9 @@ BENCHMARK_TEMPLATE_DEFINE_F(TestSolvent, GetDeltaFFloat, float)
       n3 = state.range(1);
 
   auto [xi, vexc, w, delta_f, delta_f_ref, ff_ref, rho0, prefactor] =
-      prep_delta_f<float>(n0, n1, n2, n3);
+      prep_delta_f<float_type>(n0, n1, n2, n3);
   for (auto _ : state) {
-    const auto [time_delta_f, passed] = test_get_delta_f<float>(
+    const auto [time_delta_f, passed] = test_get_delta_f<float_type>(
         xi, vexc, w, delta_f, delta_f_ref, ff_ref, rho0, prefactor);
 
     state.SetIterationTime(time_delta_f);
@@ -232,9 +232,9 @@ BENCHMARK_TEMPLATE_DEFINE_F(TestSolvent, GetDeltaFDouble, double)
       n3 = state.range(1);
 
   auto [xi, vexc, w, delta_f, delta_f_ref, ff_ref, rho0, prefactor] =
-      prep_delta_f<double>(n0, n1, n2, n3);
+      prep_delta_f<float_type>(n0, n1, n2, n3);
   for (auto _ : state) {
-    const auto [time_delta_f, passed] = test_get_delta_f<double>(
+    const auto [time_delta_f, passed] = test_get_delta_f<float_type>(
         xi, vexc, w, delta_f, delta_f_ref, ff_ref, rho0, prefactor);
 
     state.SetIterationTime(time_delta_f);
