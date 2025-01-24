@@ -176,11 +176,12 @@ class Solver {
                 solvent.m_rho0, m_solvents->m_prefactor);
     double delta_f_time = timer.seconds();
 
-    std::cout << "delta_rho_time: " << delta_rho_time << std::endl;
-    std::cout << "projection_time: " << projection_time << std::endl;
-    std::cout << "convolution_time: " << convolution_time << std::endl;
-    std::cout << "gather_time: " << gather_time << std::endl;
-    std::cout << "delta_f_time: " << delta_f_time << std::endl;
+    std::cout << " Timers: " << std::endl;
+    std::cout << " delta_rho_time: " << delta_rho_time << std::endl;
+    std::cout << " projection_time: " << projection_time << std::endl;
+    std::cout << " convolution_time: " << convolution_time << std::endl;
+    std::cout << " gather_time: " << gather_time << std::endl;
+    std::cout << " delta_f_time: " << delta_f_time << std::endl;
 
   }
 };  // class Solver
