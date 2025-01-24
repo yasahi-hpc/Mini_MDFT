@@ -136,13 +136,19 @@ class Solver {
   void energy_cproj_mrso(ScalarType& ff, View4DType& df) {
     auto solvent = m_solvents->m_solvents.at(0);
 
+    Kokkos::Timer timer;
+
     // 1 get Δρ(r,ω)
     // (nx, ny, nz, theta * phi * psi) -> (nx * ny * nz, theta, phi, psi)
+    timer.reset();
     get_delta_rho(m_exec_space, solvent.m_xi, m_delta_rho, solvent.m_rho0);
+    double delta_rho_time = timer.seconds();
 
     // 2. projection
     // (nx * ny * nz, theta, phi, psi) -> (nm * nmup * nmu, nx, ny, nz)
+    timer.reset();
     m_op_transform->angl2proj(m_delta_rho, m_delta_rho_p);
+    double projection_time = timer.seconds();
 
     // 3. FFT3D-C2C
     // 4. rotate to q frame
@@ -150,11 +156,15 @@ class Solver {
     // 6. rotate back to fixed frame
     // 7. FFT3D-C2C
     // (nm * nmup * nmu, nx, ny, nz) -> (nm * nmup * nmu, nx, ny, nz)
+    timer.reset();
     m_conv->execute(m_delta_rho_p);
+    double convolution_time = timer.seconds();
 
     // 8. to orientation
     // (np, nx, ny, nz) -> (nx * ny * nz, theta, phi, psi)
+    timer.reset();
     m_op_transform->proj2angl(m_delta_rho_p, m_vexc);
+    double gather_time = timer.seconds();
 
     // 9. gather projections
     // (nx, ny, nz, theta * phi * psi) -> (nx, ny, nz, theta * phi * psi)
@@ -164,6 +174,14 @@ class Solver {
     View4DType vexc(m_vexc.data(), nx, ny, nz, no);
     get_delta_f(m_exec_space, solvent.m_xi, vexc, m_angular_grid->m_w, df, ff,
                 solvent.m_rho0, m_solvents->m_prefactor);
+    double delta_f_time = timer.seconds();
+
+    std::cout << "delta_rho_time: " << delta_rho_time << std::endl;
+    std::cout << "projection_time: " << projection_time << std::endl;
+    std::cout << "convolution_time: " << convolution_time << std::endl;
+    std::cout << "gather_time: " << gather_time << std::endl;
+    std::cout << "delta_f_time: " << delta_f_time << std::endl;
+
   }
 };  // class Solver
 
