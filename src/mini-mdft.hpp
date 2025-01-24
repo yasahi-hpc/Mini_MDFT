@@ -152,12 +152,16 @@ class Solver {
     // (nm * nmup * nmu, nx, ny, nz) -> (nm * nmup * nmu, nx, ny, nz)
     m_conv->execute(m_delta_rho_p);
 
-    // 8. gather projections
+    // 8. to orientation
     // (np, nx, ny, nz) -> (nx * ny * nz, theta, phi, psi)
     m_op_transform->proj2angl(m_delta_rho_p, m_vexc);
 
-    // (nx * ny * nz, theta, phi, psi) -> (nx * ny * nz, theta, phi, psi)
-    get_delta_f(m_exec_space, solvent.m_xi, m_vexc, m_angular_grid->m_w, df, ff,
+    // 9. gather projections
+    // (nx, ny, nz, theta * phi * psi) -> (nx, ny, nz, theta * phi * psi)
+    auto xi = solvent.m_xi;
+    int nx = xi.extent(0), ny = xi.extent(1), nz = xi.extent(2), no = xi.extent(3);
+    View4DType vexc(m_vexc.data(), nx, ny, nz, no);
+    get_delta_f(m_exec_space, solvent.m_xi, vexc, m_angular_grid->m_w, df, ff,
                 solvent.m_rho0, m_solvents->m_prefactor);
   }
 };  // class Solver
