@@ -182,7 +182,6 @@ class Solver {
     std::cout << " convolution_time: " << convolution_time << std::endl;
     std::cout << " gather_time: " << gather_time << std::endl;
     std::cout << " delta_f_time: " << delta_f_time << std::endl;
-
   }
 };  // class Solver
 
