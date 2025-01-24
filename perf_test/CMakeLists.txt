@@ -1,0 +1,57 @@
+# SPDX-FileCopyrightText: (C) The Mini-MDFT development team, see COPYRIGHT.md file
+#
+# SPDX-License-Identifier: MIT
+
+# Find or download google/benchmark library
+find_package(benchmark QUIET 1.5.6)
+if(benchmark_FOUND)
+  message(STATUS "Using google benchmark found in ${benchmark_DIR}")
+else()
+  message(STATUS "No installed google benchmark found, fetching from GitHub")
+  include(FetchContent)
+  set(BENCHMARK_ENABLE_TESTING OFF)
+
+  list(APPEND CMAKE_MESSAGE_INDENT "[benchmark] ")
+  FetchContent_Declare(
+    googlebenchmark
+    DOWNLOAD_EXTRACT_TIMESTAMP FALSE
+    URL https://github.com/google/benchmark/archive/refs/tags/v1.7.1.tar.gz
+    URL_HASH MD5=0459a6c530df9851bee6504c3e37c2e7
+  )
+  FetchContent_MakeAvailable(googlebenchmark)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+
+  # Suppress clang-tidy diagnostics on code that we do not have control over
+  if(CMAKE_CXX_CLANG_TIDY)
+    set_target_properties(benchmark PROPERTIES CXX_CLANG_TIDY "")
+  endif()
+
+  target_compile_options(benchmark PRIVATE -w)
+  target_compile_options(benchmark_main PRIVATE -w)
+endif()
+
+function(KOKKOS_ADD_BENCHMARK NAME)
+  cmake_parse_arguments(BENCHMARK "" "" "SOURCES" ${ARGN})
+  if(DEFINED BENCHMARK_UNPARSED_ARGUMENTS)
+    message(WARNING "Unexpected arguments when adding a benchmark: " ${BENCHMARK_UNPARSED_ARGUMENTS})
+  endif()
+
+  set(BENCHMARK_NAME Kokkos_${NAME})
+  list(APPEND BENCHMARK_SOURCES BenchmarkMain.cpp)
+
+  add_executable(${BENCHMARK_NAME} ${BENCHMARK_SOURCES})
+  target_link_libraries(${BENCHMARK_NAME} PUBLIC Mini-MDFT-Common PRIVATE benchmark::benchmark Kokkos::kokkos impl_git_version)
+  target_include_directories(${BENCHMARK_NAME} SYSTEM PRIVATE ${benchmark_SOURCE_DIR}/include ../)
+
+  foreach(SOURCE_FILE ${BENCHMARK_SOURCES})
+    set_source_files_properties(${SOURCE_FILE} PROPERTIES LANGUAGE CXX)
+  endforeach()
+
+  string(TIMESTAMP BENCHMARK_TIME "%Y-%m-%d_T%H-%M-%S" UTC)
+  set(BENCHMARK_ARGS --benchmark_counters_tabular=true --benchmark_out=${BENCHMARK_NAME}_${BENCHMARK_TIME}.json)
+
+  add_test(NAME ${BENCHMARK_NAME} COMMAND ${BENCHMARK_NAME} ${BENCHMARK_ARGS})
+endfunction()
+
+kokkos_add_benchmark(Benchmark_Solvent SOURCES PerfTest_Solvent.cpp)
+ 

@@ -44,7 +44,7 @@ cmake -B build \
 cmake --build build -j 8
 ```
 
-To run the tests, please run the follwoing command.
+To run the tests, please run the following command.
 ```bash
 cd build
 ctest --output-on-failure
@@ -55,6 +55,12 @@ To run the code, please run the following command.
 cd build
 ./src/mini-MDFT -filename ../input/dft2.json -solute ../input/solute.json -luc_file ../data/dcf/tip3p/tip3p-ck_nonzero_nmax3_ml
 ```
+
+Benchmark tests have been implemented using Google Benchmark. In order to build the benchmark tests add the following flag when building the project:
+```bash
+-DMini_MDFT_ENABLE_BENCHMARKS=ON
+```
+Google Benchmark will be automatically downloaded and built if it is not already installed in your system. In order to run the tests, go to the directory `perf_test` inside the build directory and run the executables, whose names will be of the form `Kokkos_Benchmark_*`. e.g., `Kokko_Benchmark_Solvent`. 
 
 ## Development strategy
 
