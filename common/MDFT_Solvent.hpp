@@ -618,8 +618,8 @@ void get_delta_f(const ExecutionSpace& exec_space, const View4DType& xi,
                  const View4DType& vexc, const View1DType& w,
                  const View4DType& delta_f, ScalarType& ff,
                  const ScalarType rho0, const ScalarType prefactor) {
-  const std::size_t nx = xi.extent(0), ny = xi.extent(1), nz = xi.extent(2),
-                    no = xi.extent(3);
+  const int nx = xi.extent(0), ny = xi.extent(1), nz = xi.extent(2),
+            no = xi.extent(3);
 
   for (int i = 0; i < 4; i++) {
     MDFT::Impl::Throw_If(xi.extent(i) != vexc.extent(i),
@@ -627,34 +627,30 @@ void get_delta_f(const ExecutionSpace& exec_space, const View4DType& xi,
   }
 
   // Flatten Views for simplicity
-  const std::size_t nxyz = nx * ny * nz;
-  using ValueType        = typename View4DType::non_const_value_type;
-  using LayoutType       = typename View4DType::array_layout;
+  const int nxyz   = nx * ny * nz;
+  using ValueType  = typename View4DType::non_const_value_type;
+  using LayoutType = typename View4DType::array_layout;
   using View2DType = Kokkos::View<ValueType**, LayoutType, ExecutionSpace>;
   View2DType delta_f_2d(delta_f.data(), nxyz, no), xi_2d(xi.data(), nxyz, no),
       vexc_2d(vexc.data(), nxyz, no);
 
-  ff                = 0;
-  using member_type = typename Kokkos::TeamPolicy<ExecutionSpace>::member_type;
-  auto team_policy =
-      Kokkos::TeamPolicy<ExecutionSpace>(exec_space, nxyz, Kokkos::AUTO);
-  Kokkos::parallel_reduce(
-      "delta_f", team_policy,
-      KOKKOS_LAMBDA(const member_type& team_member, ValueType& l_ff) {
-        const auto ixyz = team_member.league_rank();
-        ValueType sum   = 0;
-        Kokkos::parallel_reduce(
-            Kokkos::TeamThreadRange(team_member, no),
-            [&](const int io, ValueType& lsum) {
-              lsum += vexc_2d(ixyz, io) * w(io) *
-                      (xi_2d(ixyz, io) * xi_2d(ixyz, io) - 1.0);
-              delta_f_2d(ixyz, io) =
-                  2.0 * rho0 * xi_2d(ixyz, io) * vexc_2d(ixyz, io);
-            },
-            sum);
+  // Define MDRangePolicy
+  using range2D_type = Kokkos::MDRangePolicy<
+      ExecutionSpace,
+      Kokkos::Rank<2, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>;
+  using tile2D_type  = typename range2D_type::tile_type;
+  using point2D_type = typename range2D_type::point_type;
 
-        Kokkos::single(Kokkos::PerTeam(team_member),
-                       [&]() { l_ff += rho0 * sum * prefactor; });
+  range2D_type range(exec_space, point2D_type{{0, 0}}, point2D_type{{nxyz, no}},
+                     tile2D_type{{4, 32}});
+
+  ff = 0;
+  Kokkos::parallel_reduce(
+      "delta_f", range,
+      KOKKOS_LAMBDA(int ixyz, int io, ValueType& l_ff) {
+        l_ff += rho0 * prefactor * vexc_2d(ixyz, io) * w(io) *
+                (xi_2d(ixyz, io) * xi_2d(ixyz, io) - 1.0);
+        delta_f_2d(ixyz, io) = 2.0 * rho0 * xi_2d(ixyz, io) * vexc_2d(ixyz, io);
       },
       ff);
 }
