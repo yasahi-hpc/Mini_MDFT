@@ -98,6 +98,7 @@ class Solver {
     auto np     = m_angular_grid->m_np;
 
     m_delta_rho   = View4DType("delta_rho", nx * ny * nz, ntheta, nphi, npsi);
+    m_vexc        = View4DType("vexc", nx * ny * nz, ntheta, nphi, npsi);
     m_delta_rho_p = ComplexView4DType("delta_rho_p", np, nx, ny, nz);
 
     // Initialize solute
@@ -155,7 +156,7 @@ class Solver {
     // (np, nx, ny, nz) -> (nx * ny * nz, theta, phi, psi)
     m_op_transform->proj2angl(m_delta_rho_p, m_vexc);
 
-    // (nx, ny, nz, theta * phi * psi) -> (nx * ny * nz, theta, phi, psi)
+    // (nx * ny * nz, theta, phi, psi) -> (nx * ny * nz, theta, phi, psi)
     get_delta_f(m_exec_space, solvent.m_xi, m_vexc, m_angular_grid->m_w, df, ff,
                 solvent.m_rho0, m_solvents->m_prefactor);
   }
