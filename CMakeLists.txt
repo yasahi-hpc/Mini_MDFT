@@ -60,5 +60,9 @@ if(Mini_MDFT_ENABLE_TESTS)
     add_subdirectory(unit_test)
 endif()
 
+if(Mini_MDFT_ENABLE_BENCHMARKS)
+  add_subdirectory(perf_test)
+endif()
+
 add_subdirectory(common)
 add_subdirectory(src)
