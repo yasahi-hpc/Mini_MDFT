@@ -122,7 +122,7 @@ jobs:
 
       - name: Configure, build and install kokkos-fft as library
         run: |
-          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
+          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_main:latest \
             cmake -B build_kokkos_fft \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             -DCMAKE_INSTALL_PREFIX=/work/install\
@@ -131,14 +131,14 @@ jobs:
             -DCMAKE_CXX_STANDARD=20 \
             ${{ matrix.backend.cmake_flags.kokkos_fft }} \
             kokkos-fft
-          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
+          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_main:latest \
             cmake --build build_kokkos_fft -j $(( $(nproc) * 2 + 1 ))
-          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
+          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_main:latest \
             cmake --install build_kokkos_fft
 
       - name: Configure and build Mini-MDFT
         run: |
-          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
+          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_main:latest \
             cmake -B build_installed \
             -DCMAKE_BUILD_TYPE=${{ matrix.backend.cmake_build_type }} \
             -DCMAKE_PREFIX_PATH=/work/install \
@@ -146,11 +146,11 @@ jobs:
             -DCMAKE_CXX_STANDARD=20 \
             -DMini_MDFT_ENABLE_TESTS=ON \
             ${{ matrix.backend.cmake_flags.mini_mdft }}
-          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
+          docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_main:latest \
             cmake --build build -j $(( $(nproc) * 2 + 1 ))
 
       - name: Run OpenMP/Threads/Serial tests within gcc Docker image
         run: |
-          docker run -v ${{github.workspace}}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_${{ needs.check_docker_files.outputs.image_suffix }}:${{ needs.check_docker_files.outputs.image_tag }} \
+          docker run -v ${{github.workspace}}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_main:latest \
           ctest --test-dir build/unit_test --output-on-failure
         if: ${{ matrix.backend.image == 'gcc' }}
