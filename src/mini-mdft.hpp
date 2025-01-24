@@ -99,6 +99,7 @@ class Solver {
 
     m_delta_rho   = View4DType("delta_rho", nx * ny * nz, ntheta, nphi, npsi);
     m_vexc        = View4DType("vexc", nx * ny * nz, ntheta, nphi, npsi);
+    m_df          = View4DType("df", nx, ny, nz, ntheta * nphi * npsi);
     m_delta_rho_p = ComplexView4DType("delta_rho_p", np, nx, ny, nz);
 
     // Initialize solute
