@@ -139,7 +139,7 @@ jobs:
       - name: Configure and build Mini-MDFT
         run: |
           docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_main:latest \
-            cmake -B build_installed \
+            cmake -B build_mini_mdft \
             -DCMAKE_BUILD_TYPE=${{ matrix.backend.cmake_build_type }} \
             -DCMAKE_PREFIX_PATH=/work/install \
             -DCMAKE_CXX_COMPILER=${{ matrix.backend.compiler.cxx }} \
@@ -147,10 +147,10 @@ jobs:
             -DMini_MDFT_ENABLE_TESTS=ON \
             ${{ matrix.backend.cmake_flags.mini_mdft }}
           docker run -v ${{ github.workspace }}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_main:latest \
-            cmake --build build -j $(( $(nproc) * 2 + 1 ))
+            cmake --build build_mini_mdft -j $(( $(nproc) * 2 + 1 ))
 
       - name: Run OpenMP/Threads/Serial tests within gcc Docker image
         run: |
           docker run -v ${{github.workspace}}:/work ghcr.io/yasahi-hpc/mini-mdft/base_${{ matrix.backend.image }}_main:latest \
-          ctest --test-dir build/unit_test --output-on-failure
+          ctest --test-dir build_mini_mdft/unit_test --output-on-failure
         if: ${{ matrix.backend.image == 'gcc' }}
