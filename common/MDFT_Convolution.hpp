@@ -346,7 +346,9 @@ class Convolution {
         ScratchView1DType::shmem_size(request_size2 * 4 + np_new);
     int level = 1;  // using global memory
     auto team_policy =
-        Kokkos::TeamPolicy<>(N, Kokkos::AUTO, Kokkos::AUTO)
+        Kokkos::TeamPolicy<>(
+            N, Kokkos::AUTO,
+            Kokkos::TeamPolicy<ExecutionSpace>::vector_length_max())
             .set_scratch_size(level, Kokkos::PerTeam(scratch_size));
     auto a = m_coeffs.m_a;
     auto b = m_coeffs.m_b;
