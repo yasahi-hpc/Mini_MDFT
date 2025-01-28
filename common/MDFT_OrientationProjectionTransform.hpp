@@ -290,7 +290,9 @@ class OrientationProjectionTransform {
     int scratch_size = ScratchViewType::shmem_size(ntheta, mmax2_p1, mmax_mrso);
     int level        = 1;  // using global memory
     auto team_policy =
-        Kokkos::TeamPolicy<>(N, Kokkos::AUTO, Kokkos::AUTO)
+        Kokkos::TeamPolicy<>(
+            N, Kokkos::AUTO,
+            Kokkos::TeamPolicy<ExecutionSpace>::vector_length_max())
             .set_scratch_size(level, Kokkos::PerTeam(scratch_size));
 
     // Need to represent o_hat
@@ -325,8 +327,9 @@ class OrientationProjectionTransform {
 
           // Loop over theta, 0:mmax, mmax/mrso
           Kokkos::parallel_for(
-              Kokkos::ThreadVectorMDRange<Kokkos::Rank<3>, member_type>(
-                  team_member, ntheta, mmax_p1, mmax_mrso),
+              Kokkos::TeamVectorMDRange<Kokkos::Rank<3, Kokkos::Iterate::Right>,
+                                        member_type>(team_member, ntheta,
+                                                     mmax_p1, mmax_mrso),
               [&](const int itheta, const int imup, const int imu2) {
                 int imup_shift   = imup + mmax;
                 int imup_shiftp1 = imup + mmax_p1;
@@ -407,7 +410,9 @@ class OrientationProjectionTransform {
     int scratch_size = ScratchViewType::shmem_size(ntheta, mmax2_p1, mmax_mrso);
     int level        = 1;  // using global memory
     auto team_policy =
-        Kokkos::TeamPolicy<>(N, Kokkos::AUTO, Kokkos::AUTO)
+        Kokkos::TeamPolicy<>(
+            N, Kokkos::AUTO,
+            Kokkos::TeamPolicy<ExecutionSpace>::vector_length_max())
             .set_scratch_size(level, Kokkos::PerTeam(scratch_size));
 
     using value_type  = typename PView::non_const_value_type;
@@ -428,8 +433,9 @@ class OrientationProjectionTransform {
 
           // Loop over theta, mmax*2 + 1, mmax/mrso
           Kokkos::parallel_for(
-              Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, member_type>(
-                  team_member, ntheta, mmax2_p1, mmax_mrso),
+              Kokkos::TeamVectorMDRange<Kokkos::Rank<3, Kokkos::Iterate::Right>,
+                                        member_type>(team_member, ntheta,
+                                                     mmax2_p1, mmax_mrso),
               [&](const int itheta, const int imup, const int imu2) {
                 value_type sum = 0;
                 int m_init     = Kokkos::max(Kokkos::abs(imup - mmax),
@@ -446,8 +452,9 @@ class OrientationProjectionTransform {
 
           // Loop over theta, 0:mmax, mmax/mrso
           Kokkos::parallel_for(
-              Kokkos::ThreadVectorMDRange<Kokkos::Rank<3>, member_type>(
-                  team_member, ntheta, mmax_p1, mmax_mrso),
+              Kokkos::TeamVectorMDRange<Kokkos::Rank<3, Kokkos::Iterate::Right>,
+                                        member_type>(team_member, ntheta,
+                                                     mmax_p1, mmax_mrso),
               [&](const int itheta, const int imup, const int imu2) {
                 int imup_shift   = imup + mmax;
                 int imup_shiftp1 = imup + mmax_p1;
