@@ -14,13 +14,13 @@ on:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Cleanup old images
         uses: SmartsquareGmbH/delete-old-packages@v0.8.1
-        permissions:
-          contents: read
-          packages: write
         with:
           user: yasahi-hpc
           type: container
