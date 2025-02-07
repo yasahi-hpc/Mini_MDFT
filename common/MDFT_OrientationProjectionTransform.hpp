@@ -275,8 +275,8 @@ class OrientationProjectionTransform {
     // Need to represent o and o_hat in another way using Unmanaged views
     // delta_rho_hat (r, ktheta, kphi, kpsi) = FFT [delta_rho (r, theta, phi,
     // psi)]
-    m_rfft2_plan->execute(
-        o, m_o_hat,
+    KokkosFFT::execute(
+        *m_rfft2_plan, o, m_o_hat,
         KokkosFFT::Normalization::none);  // Plan should have extents method?
 
     auto p_map    = m_map.p();
@@ -479,7 +479,8 @@ class OrientationProjectionTransform {
 
     // We may use an inplace transform here
     // gamma (r, thata, phi, psi) = IFFT [gamma (r, ktheta, kphi, kpsi)]
-    m_irfft2_plan->execute(m_o_hat, o, KokkosFFT::Normalization::none);
+    KokkosFFT::execute(*m_irfft2_plan, m_o_hat, o,
+                       KokkosFFT::Normalization::none);
   }
 };
 };  // namespace MDFT

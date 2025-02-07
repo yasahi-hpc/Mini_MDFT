@@ -325,8 +325,8 @@ class Convolution {
     requires KokkosViewAccesible<ExecutionSpace, View>
   void execute(const View& deltarho_p) {
     // delta_rho_hat^m_{\mu', \mu}(q) = FFT [delta_rho^m_{\mu', \mu}(r)]
-    m_forward_plan->execute(deltarho_p, deltarho_p,
-                            KokkosFFT::Normalization::none);
+    KokkosFFT::execute(*m_forward_plan, deltarho_p, deltarho_p,
+                       KokkosFFT::Normalization::none);
 
     // For all vectors q and -q handled simultaneously.
     // ix_q,iy_q,iz_q are the coordinates of vector q, while ix_mq,iy_mq_iz_mq
@@ -543,8 +543,8 @@ class Convolution {
         });
 
     // gamma^m_{\mu', \mu}(r) = IFFT [\hat{gamma}^m_{\mu', \mu}(q)]
-    m_backward_plan->execute(deltarho_p, deltarho_p,
-                             KokkosFFT::Normalization::none);
+    KokkosFFT::execute(*m_backward_plan, deltarho_p, deltarho_p,
+                       KokkosFFT::Normalization::none);
   }
 };
 };  // namespace MDFT
